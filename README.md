@@ -1,2 +1,6 @@
-# weatherINFO_VIisualize
+# weatherINFO_Visualize
 r 을 사용한 미세먼지, 온습도 시각화
+
+: 서울시 도시데이터 팀 보고서 작성에 사용되는 각종 도표들을 쉽게 그릴 수 있는 템플릿 입니다.
+
+
