@@ -21,5 +21,7 @@ r 을 사용한 미세먼지, 온습도 시각화 템플릿
 
 <img src="https://github.com/hoheer/weatherINFO_VIisualize/blob/main/image/2021%EB%85%84%20%EC%9D%BC%EB%B3%84%EB%AF%B8%EC%84%B8%EB%A8%BC%EC%A7%80.png" width="40%" height="30%" title="px(200)" alt="RubberDuck"></img>
 
-2020년 자치구 시간별 미세먼지 평균 값 시각화
 
+2020년 자치구 시간별 미세먼지 평균 값 시각화(
+
+<img src="https://github.com/hoheer/weatherINFO_VIisualize/blob/main/image/2020%EB%AF%B8%EC%84%B8%EC%9B%80.gif" width="40%" height="30%" title="px(200)" alt="RubberDuck"></img>
