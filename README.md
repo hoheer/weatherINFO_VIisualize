@@ -1,9 +1,6 @@
 # weatherINFO_Visualize
-r 을 사용한 미세먼지, 온습도 시각화
+r 을 사용한 미세먼지, 온습도 시각화 템플릿
 
-: 서울시 도시데이터 팀 보고서 작성에 사용되는 각종 도표들을 쉽게 그릴 수 있는 템플릿 입니다.
-
-데이터와 일자 2개를 고른 후 서로 비교가 가능합니다. 
 다음 기준에 따라 지도 및 다양한 그래프로 시각화하게 됩니다.
 1. 기간전체
 2. 일별
@@ -24,4 +21,5 @@ r 을 사용한 미세먼지, 온습도 시각화
 
 <img src="https://github.com/hoheer/weatherINFO_VIisualize/blob/main/image/2021%EB%85%84%20%EC%9D%BC%EB%B3%84%EB%AF%B8%EC%84%B8%EB%A8%BC%EC%A7%80.png" width="40%" height="30%" title="px(200)" alt="RubberDuck"></img>
 
-knit html은 용량이 매우 커 별도 첨부하였습니다.
+2020년 자치구 시간별 미세먼지 평균 값 시각화
+
