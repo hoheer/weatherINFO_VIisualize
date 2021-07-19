@@ -1,0 +1,2641 @@
+---
+title: "기상 특보"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    keep_md: yes
+  pdf_document:
+    toc: yes
+---
+```{r setup, include=FALSE, warning=FALSE, echo = FALSE, dpi = 300}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r, warning= FALSE, message=F, echo = FALSE}
+#분석하고자 하는 csv데이터를 sdot이라는 데이터 프레임에 넣기 
+#라이브러리 로드 순서는 절대 변경되면 안됩니다. 
+library(dplyr)
+library(scales)
+library(rgdal)
+library(raster)
+library(reactable)
+library(flexdashboard)
+library(ggmap)
+library(ggplot2)
+library(raster)
+library(rgeos)
+library(maptools)
+library(rgdal)
+#library(readAny)
+library(raster)
+library(leaflet)
+library(lubridate)
+library(data.table)
+library(purrr)
+library(tidyverse)
+library(feather)
+library(mapview)
+library(leaflet.extras)
+library(multidplyr)
+library(geosphere)
+library(DataExplorer)
+library(formattable)
+options(digits = 1)
+options(scipen=100)
+library(ggplot2)
+library(gridExtra)  
+library(ggpubr)
+library(ggridges)
+library(ggplot2)
+library(viridis)
+library(hrbrthemes)
+library(leaflet.extras)
+library(gganimate)
+library(gapminder)
+library(transformr)
+library(gifski)
+
+###########################################################################
+###########################날짜입력########################################
+#data폴더와 data2폴더에 비교하고자 하는 sdot1시간 데이터를 각각 넣어야함
+
+year_2020   <-  "2020-05-06"
+year_2020_2 <-  "2020-05-09"
+
+year_2021   <-  "2021-05-06"
+year_2021_2 <-  "2021-05-09"
+
+###########################################################################
+###########################################################################
+
+
+setwd("/Users/zpzg/Downloads/사본(1) - level/level/data/") 
+tsv <- list.files(pattern = "ALL") %>% map_df(~read.csv(.,head = TRUE, check.names = FALSE, fileEncoding = 'euc-kr')) %>% as_tibble()
+names(tsv) <- c("모델명", "시리얼", "구분", "초미세먼지 (㎍/㎥)", "미세먼지 (㎍/㎥)", "기온 (℃)", "상대습도 (%)", "풍향 (°)", "풍속 (m/s)", "돌풍 풍향 (°)", "돌풍 풍속 (m/s)", "조도 (lux)", "자외선 (UVI)", "소음 (dB)", "진동(x) (g)","진동(y) (g)","진동(z) (g)","진동(x) 최대 (g)","진동(y) 최대 (g)","진동(z) 최대 (g)","흑구 온도 (℃)","초미세먼지 보정 (㎍/㎥)","미세먼지 보정 (㎍/㎥)",
+                "측정시간","등록 일시","date")
+tsv$date <-NULL
+
+setwd("/Users/zpzg/Downloads/사본(1) - level/level/data2/")
+data4 <- list.files(pattern = "ALL") %>% map_df(~read.csv(.,head = TRUE, check.names = FALSE, fileEncoding = 'euc-kr')) %>% as_tibble()
+z <-data4
+z <- z[-25:-30]
+names(z) <- c("모델명", "시리얼", "구분", "초미세먼지 (㎍/㎥)", "미세먼지 (㎍/㎥)", "기온 (℃)", "상대습도 (%)", "풍향 (°)", "풍속 (m/s)", "돌풍 풍향 (°)", "돌풍 풍속 (m/s)", "조도 (lux)", "자외선 (UVI)", "소음 (dB)", "진동(x) (g)","진동(y) (g)","진동(z) (g)","진동(x) 최대 (g)","진동(y) 최대 (g)","진동(z) 최대 (g)","흑구 온도 (℃)","초미세먼지 보정 (㎍/㎥)","미세먼지 보정 (㎍/㎥)",
+"측정시간","등록 일시")
+
+#TSV -> DATA FOLDER: OLD DATA(20)
+#Z -> DATA 2 FOLDER: NOW DATA(21)
+tsv<-rbind(tsv, z)
+
+#TSV -> 21,21 DATA RBIND
+
+
+# tsv<-read.csv("test.csv", fileEncoding = 'euc-kr',  head=TRUE, check.names = FALSE)
+# tsv$date <-NULL
+# names(tsv) <- c("모델명", "시리얼", "구분", "초미세먼지 (㎍/㎥)", "미세먼지 (㎍/㎥)", "기온 (℃)", "상대습도 (%)", "풍향 (°)", "풍속 (m/s)", "돌풍 풍향 (°)", "돌풍 풍속 (m/s)", "조도 (lux)", "자외선 (UVI)", "소음 (dB)", "진동(x) (g)","진동(y) (g)","진동(z) (g)","진동(x) 최대 (g)","진동(y) 최대 (g)","진동(z) 최대 (g)","흑구 온도 (℃)","미세먼지 보정 (㎍/㎥)", "초미세먼지 보정 (㎍/㎥)",
+# "측정시간","등록 일시")
+
+setwd("/Users/zpzg/Downloads/사본(1) - level/level/basic_data/")
+model <- read.csv("model.csv", head=TRUE, fileEncoding = 'euc-kr', check.names = FALSE)
+
+model$No <-NULL
+#model <-model %>% filter(!set ==999)
+model <- model %>% dplyr::rename(시리얼 = model)
+
+sdot_hour_data <- merge(tsv, model, by ="시리얼", all.x = TRUE)
+sdot_hour_data <- sdot_hour_data %>% dplyr::rename(long = y, lat = x)
+
+sample<-read.csv("sample.csv", head=TRUE, fileEncoding = 'euc-kr')
+sample$A <-NULL
+sample$B <-NULL
+sample <- sample %>% dplyr::rename(gover = 시군구명)
+tsv <- merge(sdot_hour_data, sample, by ="gover", all.x = TRUE)
+
+
+###########2021년 시리얼 ########
+model2 <- read_csv("model2.csv")
+model2 <- model2 %>% dplyr::rename(시리얼 = model)
+tsv <- merge(tsv, model2, by ="시리얼", all.x = TRUE)
+####################################
+
+
+
+
+
+rm(z)
+rm(data4)
+rm(model)
+rm(model2)
+rm(sample)
+rm(sdot_hour_data)
+gc()
+
+tsv$`등록 일시` <- ymd_hms(tsv$`등록 일시`)
+tsv$`등록 일시` <-format(as.POSIXct(tsv$`등록 일시`), "%Y-%m-%d %H:00:00")
+tsv$측정시간 <- tsv$`등록 일시`
+tsv$측정시간 <-format(as.POSIXct(tsv$측정시간), "%Y-%m-%d %H:00:00")
+tsv$측정시간 <- ymd_hms(tsv$측정시간)
+tsv$`등록 일시` <- ymd_hms(tsv$`등록 일시`)
+
+tsv$date <-as.Date(tsv$측정시간)
+tsv$year<-year(tsv$date)
+
+#tsv는 측정 데이터를 전부 다 가지고 있는 테이블 이며 
+
+#미세먼지 값은 전부 첫째자리에서 반올림,초미세 역시 동일  
+tsv[,'초미세먼지 보정 (㎍/㎥)'] = round(tsv[,'초미세먼지 보정 (㎍/㎥)'],0)
+tsv[,'미세먼지 보정 (㎍/㎥)'] = round(tsv[,'미세먼지 보정 (㎍/㎥)'],0)
+
+#음수 측정값 제거
+tsv <- tsv[tsv$'미세먼지 보정 (㎍/㎥)'>=0,]
+tsv <- tsv[tsv$'초미세먼지 보정 (㎍/㎥)'>=0,]
+
+
+
+tsv_1 <- tsv %>% filter(date >= year_2020 & date <= year_2020_2)
+tsv_2 <- tsv %>% filter(date >= year_2021 & date <= year_2021_2)
+tsv_2 <- tsv_2 %>% filter(!is.na(gover))
+
+rm(tsv)
+
+#이 시점에서 tsv1 -> 20년도 데이터 이며
+#tsv2 -> 21년도 데이터 이다. 
+# year_2020_2 등은 변수로 6일과 9일 사이의 데이터만 따로 추출한 것이다. 
+
+
+#tsv %>% filter(date =="2021-05-06")
+  
+# tsv_2$`미세먼지 보정 (㎍/㎥)2`<-tsv_2$`미세먼지 보정 (㎍/㎥)`
+# tsv_2$`미세먼지 보정 (㎍/㎥)`<-tsv_2$`초미세먼지 보정 (㎍/㎥)`
+# tsv_2$`초미세먼지 보정 (㎍/㎥)`<-tsv_2$`미세먼지 보정 (㎍/㎥)2`
+# tsv_2$`미세먼지 보정 (㎍/㎥)2` <-NULL
+# tsv_2$`초미세먼지 보정 (㎍/㎥)2` <-NULL
+
+tsv_1$`미세먼지 보정 (㎍/㎥)` <-ceiling(tsv_1$`미세먼지 보정 (㎍/㎥)`)
+tsv_1$`초미세먼지 보정 (㎍/㎥)` <-ceiling(tsv_1$`초미세먼지 보정 (㎍/㎥)`)
+
+tsv_2$`미세먼지 보정 (㎍/㎥)` <- ceiling(tsv_2$`미세먼지 보정 (㎍/㎥)`)
+tsv_2$`초미세먼지 보정 (㎍/㎥)` <-ceiling(tsv_2$`초미세먼지 보정 (㎍/㎥)`)
+
+
+
+
+#일별미세먼지
+tsv_1_seoul <- tsv_1 %>% group_by(date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+tsv_2_seoul <- tsv_2 %>% group_by(date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+
+#1->20년도 데이터 미세 초미세 둘다 포함 
+#2->21년도 데이터 미세 초미세 둘다 포함
+
+#일별 기온과 습도
+tsv_1_seoul_temp <- tsv_1 %>% group_by(date) %>% summarise(기온 = mean(`기온 (℃)`, na.rm = TRUE ) )
+tsv_1_seoul_humid <- tsv_1 %>% group_by(date) %>% summarise(습도 = mean(`상대습도 (%)`, na.rm = TRUE ) )
+
+tsv_2_seoul_temp <- tsv_2 %>% group_by(date) %>% summarise(기온 = mean(`기온 (℃)`, na.rm = TRUE ) )
+tsv_2_seoul_humid <- tsv_2 %>% group_by(date) %>% summarise(습도 = mean(`상대습도 (%)`, na.rm = TRUE ) )
+
+
+
+
+#일별 미세초미세먼지 melt
+tsv_1_seoul <- melt(tsv_1_seoul, id.vars='date')
+tsv_2_seoul <- melt(tsv_2_seoul, id.vars='date')
+
+tsv_3_seoul<-rbind(tsv_1_seoul, tsv_2_seoul)
+
+#일별 온습도
+
+tsv_1_seoul_temp <-  melt(tsv_1_seoul_temp, id.vars='date')
+tsv_1_seoul_humid <-  melt(tsv_1_seoul_humid, id.vars='date')
+
+
+tsv_1_seoul_temp$date <- as.factor(tsv_1_seoul_temp$date)
+tsv_2_seoul_temp$date <- as.factor(tsv_2_seoul_temp$date)
+
+tsv_2_seoul_temp <- melt(tsv_2_seoul_temp, id.vars='date')
+tsv_2_seoul_humid <- melt(tsv_2_seoul_humid, id.vars='date')
+
+tsv_1_seoul_humid$date <- as.factor(tsv_1_seoul_humid$date)
+tsv_2_seoul_humid$date <- as.factor(tsv_2_seoul_humid$date)
+
+
+```
+
+# 서울시 일별 온습도, 미세먼지 막대그래프
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=5, fig.height=5}
+ggplot(tsv_3_seoul, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity", position="dodge",show.legend=TRUE, colour="black") +
+    geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4 ,position=position_dodge(width=0.9), vjust=-0.25) +
+  ylab('미세먼지&초미세먼지 농도') + 
+  
+  labs(title="서울시 일별 미세먼지 농도") +
+  scale_x_date(date_breaks = "day" , date_labels = "%y년%b월%d일") +
+  theme_bw() + 
+  theme(text=element_text(family="NanumGothic")) +
+  facet_wrap(~date,scales = "free_x")
+
+
+#20년도 일별 기온 그래프
+ggplot(tsv_1_seoul_temp, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.3) +
+    geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4 ,position=position_dodge(width=0.9), vjust=-0.25) +
+    ylim(0,30)+
+  ylab('20년도 서울시 일별 기온') 
+
+#21년도 일별 기온 그래프 
+ggplot(tsv_2_seoul_temp, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.3) +
+    geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4 ,position=position_dodge(width=0.9), vjust=-0.25) +
+    ylim(0,30)+
+  ylab('21년도 서울시 일별 기온') 
+
+ 
+
+#20년도 일별 습도 그래프
+ggplot(tsv_1_seoul_humid, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.3,fill = 'royalblue') +
+    geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4 ,position=position_dodge(width=0.9), vjust=-0.25) +
+    ylim(0,100)+
+  ylab('20년도 서울시 일별 습도') 
+
+
+
+#21년도 일별 습도 그래프
+ggplot(tsv_2_seoul_humid, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.3,fill = 'royalblue') +
+    geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4 ,position=position_dodge(width=0.9), vjust=-0.25) +
+    ylim(0,100)+
+  ylab('21년도 서울시 일별 습도') 
+
+rm(tsv_1_seoul_humid)
+rm(tsv_1_seoul_temp)
+rm(tsv_2_seoul_humid)
+rm(tsv_2_seoul_temp)
+
+gc()
+
+```
+
+
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300, fig.width=5}
+tsv_3_seoul$year <-NULL
+test_formattable <- tidyr::spread(tsv_3_seoul, date,value)
+#test_formattable$year <-null
+formattable(test_formattable,
+            list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+                  ~ color_tile("#DeF7E9", "lightpink")))
+#test_formattable <-t(test_formattable)
+#test_formattable <- as.data.frame(test_formattable)
+
+
+rm(test_formattable)
+```
+# 서울시 시간별 온습도, 미세먼지 꺾은선 그래프
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300, fig.width=7}
+
+#일별_시간별_미세먼지
+tsv_1_seoul_hour <- tsv_1 %>% group_by(측정시간,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+tsv_2_seoul_hour <- tsv_2 %>% group_by(측정시간,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+
+#일별_시간별_온습도_평균데이터
+tsv_1_seoul_hour_temp <- tsv_1 %>% group_by(측정시간,date) %>% summarise(기온 =mean(`기온 (℃)`, na.rm =TRUE ))
+tsv_2_seoul_hour_temp <- tsv_2 %>% group_by(측정시간,date) %>% summarise(기온 =mean(`기온 (℃)`, na.rm =TRUE ))
+
+tsv_1_seoul_hour_humid <- tsv_1 %>% group_by(측정시간,date) %>% summarise(습도 =mean(`상대습도 (%)`, na.rm =TRUE ))
+tsv_2_seoul_hour_humid <- tsv_2 %>% group_by(측정시간,date) %>% summarise(습도 =mean(`상대습도 (%)`, na.rm =TRUE ))
+
+
+#일별_시간별_온습도_반올림
+tsv_1_seoul_hour_temp$기온 <- round(tsv_1_seoul_hour_temp$기온) 
+tsv_2_seoul_hour_temp$기온 <- round(tsv_2_seoul_hour_temp$기온) 
+
+tsv_1_seoul_hour_humid$습도 <- round(tsv_1_seoul_hour_humid$습도) 
+tsv_2_seoul_hour_humid$습도 <- round(tsv_2_seoul_hour_humid$습도) 
+
+#일별_시간별_미세초미세 반올림
+
+tsv_1_seoul_hour$미세먼지 <- round(tsv_1_seoul_hour$미세먼지)
+tsv_1_seoul_hour$초미세먼지 <- round(tsv_1_seoul_hour$초미세먼지)
+
+tsv_2_seoul_hour$미세먼지 <- round(tsv_2_seoul_hour$미세먼지)
+tsv_2_seoul_hour$초미세먼지 <- round(tsv_2_seoul_hour$초미세먼지)
+
+
+tsv_3_seoul_hour <- rbind(tsv_1_seoul_hour, tsv_2_seoul_hour)
+
+p1<-ggplot(tsv_1_seoul_hour, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  geom_text(aes(y=미세먼지,label= round(미세먼지, digits = 0)), vjust = -1, size = 2) +
+  geom_text(aes(y=초미세먼지,label= round(초미세먼지, digits = 0)),  vjust = -1, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2020,"~",year_2020_2, " 미세먼지 농도(빨간색 : 초미세먼지, 파란색 : 미세먼지)"))  + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "2 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0))
+
+
+#서울시 전체 시간별 온도 2020
+p_seoul_hour_temp1 <- ggplot(tsv_1_seoul_hour_temp, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 기온), color = "red", linetype="solid") + 
+  geom_point(aes(y = 기온), colour = "steelblue", size = 0.7) +
+  
+  geom_text(aes(y=기온,label= round(기온, digits = 0)), vjust = -3, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2020,"~",year_2020_2, "서울 시간별 평균 기온"))  + ylab("기온") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "2 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0))
+
+#서울시 전체 시간별 온도 2021
+p_seoul_hour_temp2 <- ggplot(tsv_2_seoul_hour_temp, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 기온), color = "red", linetype="solid") + 
+  geom_point(aes(y = 기온), colour = "steelblue", size = 0.7) +
+  
+  geom_text(aes(y=기온,label= round(기온, digits = 0)), vjust = -3, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2021,"~",year_2021_2, "서울 시간별 평균 기온"))  + ylab("기온") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "2 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                                        expand = c(0,0))
+
+
+#서울시 전체 시간별 습도 2020
+p_seoul_hour_humid1 <- ggplot(tsv_1_seoul_hour_humid, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 습도), color = "royalblue", linetype="solid") + 
+  geom_point(aes(y = 습도), colour = "steelblue", size = 0.7) +
+  
+  geom_text(aes(y=습도,label= round(습도, digits = 0)), vjust = -3, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkroyalblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2020,"~",year_2020_2, "서울 시간별 평균 상대습도"))  + ylab("습도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "2 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0))
+
+
+#서울시 전체 시간별 습도 2021
+p_seoul_hour_humid2 <- ggplot(tsv_2_seoul_hour_humid, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 습도), color = "royalblue", linetype="solid") + 
+  geom_point(aes(y = 습도), colour = "steelblue", size = 0.7) +
+  
+  geom_text(aes(y=습도,label= round(습도, digits = 0)), vjust = -3, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkroyalblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2021,"~",year_2021_2, "서울 시간별 평균 상대습도"))  + ylab("습도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "2 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0))
+
+
+p2<-ggplot(tsv_2_seoul_hour, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  geom_text(aes(y=미세먼지,label= round(미세먼지, digits = 0)), vjust = -1, size = 2) +
+  geom_text(aes(y=초미세먼지,label= round(초미세먼지, digits = 0)),  vjust = -1, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkroyalblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2021,"~",year_2021_2, " 미세먼지 농도(빨간색 : 초미세먼지, 파란색 : 미세먼지)"))  + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"), axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "6 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0))
+
+#p<-ggarrange(p1, p2, ncol = 2)
+p1
+p2
+p_seoul_hour_temp1
+p_seoul_hour_temp2
+p_seoul_hour_humid1
+p_seoul_hour_humid2
+
+rm(p1)
+rm(p2)
+rm(p_seoul_hour_temp1)
+rm(p_seoul_hour_temp2)
+rm(p_seoul_hour_humid1)
+rm(p_seoul_hour_humid2)
+
+
+
+
+gc()
+
+
+#2020
+max_pm10_tsv_1_seoul_hour <- max(tsv_1_seoul_hour$미세먼지) 
+max_pm2_tsv_1_seoul_hour <- max(tsv_1_seoul_hour$초미세먼지) 
+
+asdf <- tsv_1_seoul_hour %>% filter(미세먼지 == max_pm10_tsv_1_seoul_hour) %>% dplyr::select(측정시간)
+asdf2 <- tsv_1_seoul_hour %>% filter(초미세먼지 == max_pm2_tsv_1_seoul_hour) %>% dplyr::select(측정시간)
+
+mean_pm10_tsv_1_seoul_hour <- mean(tsv_1_seoul_hour$미세먼지) 
+mean_pm2_tsv_1_seoul_hour <- mean(tsv_1_seoul_hour$초미세먼지) 
+
+asdf <- tsv_1_seoul_hour %>% filter(미세먼지 == max_pm10_tsv_1_seoul_hour) %>% dplyr::select(측정시간)
+asdf2 <- tsv_1_seoul_hour %>% filter(초미세먼지 == max_pm2_tsv_1_seoul_hour) %>% dplyr::select(측정시간)
+
+
+#2021
+max_pm10_tsv_2_seoul_hour <- max(tsv_2_seoul_hour$미세먼지) 
+max_pm2_tsv_2_seoul_hour <- max(tsv_2_seoul_hour$초미세먼지) 
+
+asdf3 <- tsv_2_seoul_hour %>% filter(미세먼지 == max_pm10_tsv_2_seoul_hour) %>% dplyr::select(측정시간)
+asdf4 <- tsv_2_seoul_hour %>% filter(초미세먼지 == max_pm2_tsv_2_seoul_hour) %>% dplyr::select(측정시간)
+
+
+
+
+
+
+
+
+#paste0('**',tau,'**')
+```
+
+`r year_2020` ~ `r year_2020_2`에서 미세먼지, 초미세먼지 가장 높은 값은 각각 
+`r paste0('**',max_pm10_tsv_1_seoul_hour,'**')`, 
+`r paste0('**',max_pm2_tsv_1_seoul_hour,'**')`이며 가장 높은 값이 기록된 시간은 각각
+`r asdf$측정시간` 와 `r asdf2$측정시간` 입니다.   
+  
+또한, 
+`r year_2021` ~ `r year_2021_2`에서 미세먼지, 초미세먼지 가장 높은 값은 각각 
+`r paste0('**',max_pm10_tsv_2_seoul_hour,'**')`, 
+`r paste0('**',max_pm2_tsv_2_seoul_hour,'**')`이며 가장 높은 값이 기록된 시간은 각각
+`r asdf3$측정시간`와 `r asdf4$측정시간`입니다. 
+
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300}
+
+
+rm(asdf)
+rm(asdf2)
+rm(asdf3)
+rm(asdf4)
+
+
+before_year <-paste0(year_2020, " ~ ", year_2020_2)
+after_year <-paste0(year_2021, " ~ ", year_2021_2)
+
+tsv_1_seoul_hour$비교날짜 <- before_year
+tsv_2_seoul_hour$비교날짜 <- after_year
+
+tsv_1_seoul_hour_temp$비교날짜 <- before_year
+tsv_2_seoul_hour_temp$비교날짜 <- after_year
+
+tsv_1_seoul_hour_humid$비교날짜 <- before_year
+tsv_2_seoul_hour_humid$비교날짜 <- after_year
+
+
+A_B <- rbind(tsv_1_seoul_hour, tsv_2_seoul_hour)
+
+a_b_temp <- rbind(tsv_1_seoul_hour_temp,tsv_2_seoul_hour_temp)
+a_b_humid <- rbind(tsv_1_seoul_hour_humid,tsv_2_seoul_hour_humid)
+
+ggplot(data = A_B, aes(x = 미세먼지, group = 비교날짜, colour = 비교날짜, fill = 비교날짜)) + # fill/colour aes is not required
+  geom_density(alpha = 0.6) +
+  labs(title = "미세먼지 비교")+
+  labs(y="분포도") +
+  labs(x="미세먼지 농도") +
+
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+
+ggplot(data = A_B, aes(x = 초미세먼지, group = 비교날짜, colour = 비교날짜, fill = 비교날짜)) + # fill/colour aes is not required
+  geom_density(alpha = 0.6) +
+  labs(title = "초미세먼지 비교")+
+  labs(y="분포도") +
+  labs(x="초미세먼지 농도") +
+
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+
+#20,21 기온 분포 비교
+ggplot(data = a_b_temp, aes(x = 기온, group = 비교날짜, colour = 비교날짜, fill = 비교날짜)) + # fill/colour aes is not required
+  geom_density(alpha = 0.6) +
+  labs(title = "기온 비교")+
+  labs(y="기온 분포") +
+  labs(x="기온") +
+
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+
+#20,21 습도분포 비교
+ggplot(data = a_b_humid, aes(x = 습도, group = 비교날짜, colour = 비교날짜, fill = 비교날짜)) + # fill/colour aes is not required
+  geom_density(alpha = 0.6) +
+  labs(title = "습도 비교")+
+  labs(y="습도 분포") +
+  labs(x="습도") +
+
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+
+
+rm(A_B)
+rm(a_b_humid)
+rm(a_b_temp)
+gc()
+
+
+tsv_1_seoul_hour_pm10_mean <- mean(tsv_1_seoul_hour$미세먼지)
+tsv_1_seoul_hour_pm2_mean <- mean(tsv_1_seoul_hour$초미세먼지)
+
+tsv_2_seoul_hour_pm10_mean <- mean(tsv_2_seoul_hour$미세먼지)
+tsv_2_seoul_hour_pm2_mean <- mean(tsv_2_seoul_hour$초미세먼지)
+
+tsv_1_seoul_hour_pm10_mean <- round(tsv_1_seoul_hour_pm10_mean)
+tsv_1_seoul_hour_pm2_mean <- round(tsv_1_seoul_hour_pm2_mean)
+tsv_2_seoul_hour_pm10_mean <- round(tsv_2_seoul_hour_pm10_mean)
+tsv_2_seoul_hour_pm2_mean <- round(tsv_2_seoul_hour_pm2_mean)
+
+tsv_1_seoul_hour_nrow <-nrow(tsv_1_seoul_hour)
+tsv_2_seoul_hour_nrow <-nrow(tsv_2_seoul_hour)
+
+
+
+#####연속 평균 이상 시간재기(과거)
+###미세먼지
+tsv_1_seoul_hour_conclusion_pm10 <- tsv_1_seoul_hour
+tsv_1_seoul_hour_conclusion_pm10$conclusion <- ifelse(tsv_1_seoul_hour_conclusion_pm10$미세먼지 >= tsv_1_seoul_hour_pm10_mean, 1, 0)
+tsv_1_seoul_hour_conclusion_pm10<- tsv_1_seoul_hour_conclusion_pm10 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_1_seoul_hour_conclusion_pm10 <- tsv_1_seoul_hour_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_1_seoul_hour_conclusion_nrow_pm10 <- nrow(tsv_1_seoul_hour_conclusion_pm10)
+
+###초미세먼지
+tsv_1_seoul_hour_conclusion_pm2 <- tsv_1_seoul_hour
+tsv_1_seoul_hour_conclusion_pm2$conclusion <- ifelse(tsv_1_seoul_hour_conclusion_pm2$초미세먼지 >= tsv_1_seoul_hour_pm2_mean, 1, 0)
+tsv_1_seoul_hour_conclusion_pm2<- tsv_1_seoul_hour_conclusion_pm2 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_1_seoul_hour_conclusion_pm2 <- tsv_1_seoul_hour_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_1_seoul_hour_conclusion_nrow_pm2 <- nrow(tsv_1_seoul_hour_conclusion_pm2)
+
+#####연속 평균 이상 시간재기(과거)
+###미세먼지
+tsv_2_seoul_hour_conclusion_pm10 <- tsv_2_seoul_hour
+tsv_2_seoul_hour_conclusion_pm10$conclusion <- ifelse(tsv_2_seoul_hour_conclusion_pm10$미세먼지 >= tsv_2_seoul_hour_pm10_mean, 1, 0)
+tsv_2_seoul_hour_conclusion_pm10<- tsv_2_seoul_hour_conclusion_pm10 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_2_seoul_hour_conclusion_pm10 <- tsv_2_seoul_hour_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_2_seoul_hour_conclusion_nrow_pm10 <- nrow(tsv_2_seoul_hour_conclusion_pm10)
+
+###초미세먼지
+tsv_2_seoul_hour_conclusion_pm2 <- tsv_2_seoul_hour
+tsv_2_seoul_hour_conclusion_pm2$conclusion <- ifelse(tsv_2_seoul_hour_conclusion_pm2$초미세먼지 >= tsv_2_seoul_hour_pm2_mean, 1, 0)
+tsv_2_seoul_hour_conclusion_pm2<- tsv_2_seoul_hour_conclusion_pm2 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_2_seoul_hour_conclusion_pm2 <- tsv_2_seoul_hour_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_2_seoul_hour_conclusion_nrow_pm2 <- nrow(tsv_2_seoul_hour_conclusion_pm2)
+
+
+rm(tsv_1_seoul_hour_humid)
+rm(tsv_1_seoul_hour_temp)
+
+rm(tsv_2_seoul_hour_humid)
+rm(tsv_2_seoul_hour_temp)
+
+
+
+```
+  
+미세먼지가 측정된 `r year_2020` ~ `r year_2020_2` 구간의 미세먼지, 초미세먼지 평균 값은 각각
+`r paste0('**',tsv_1_seoul_hour_pm10_mean,'**')`, `r paste0('**',tsv_1_seoul_hour_pm2_mean,'**')`이며  
+  
+미세먼지가 측정된 `r year_2021` ~ `r year_2021_2` 구간의 미세먼지, 초미세먼지 평균 값은 각각
+`r paste0('**',tsv_2_seoul_hour_pm10_mean,'**')`, `r paste0('**',tsv_2_seoul_hour_pm2_mean,'**')`입니다.  
+  
+  
+`r year_2020` ~ `r year_2020_2`을 1시간으로 나눴을때 `r tsv_1_seoul_hour_nrow`시간이며 
+미세먼지 평균값(`r tsv_1_seoul_hour_pm10_mean`), 초미세먼지 평균 값(`r tsv_1_seoul_hour_pm2_mean`)을 
+연속으로 초과한 시간은 각각 `r paste0('**',tsv_1_seoul_hour_conclusion_nrow_pm10,'**')`시간과
+`r paste0('**',tsv_1_seoul_hour_conclusion_nrow_pm2,'**')`시간 입니다.  
+
+`r year_2021` ~ `r year_2021_2`을 1시간으로 나눴을때 `r tsv_2_seoul_hour_nrow`시간이며 
+미세먼지 평균값(`r tsv_2_seoul_hour_pm10_mean`), 초미세먼지 평균 값(`r tsv_2_seoul_hour_pm2_mean`)을 
+연속으로 초과한 시간은 각각 `r paste0('**',tsv_2_seoul_hour_conclusion_nrow_pm10,'**')`시간과
+`r paste0('**',tsv_2_seoul_hour_conclusion_nrow_pm2,'**')`시간 입니다.  
+
+  
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300}
+tsv_1_seoul_hour_conclusion_pm2$conclusion <-NULL
+formattable(tsv_1_seoul_hour_conclusion_pm2,
+            list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+                  ~ color_tile("#DeF7E9", "lightpink")))
+
+
+
+tsv_2_seoul_hour_conclusion_pm2$conclusion <-NULL
+formattable(tsv_2_seoul_hour_conclusion_pm2,
+            list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+                  ~ color_tile("#DeF7E9", "lightpink")))
+
+
+```
+  
+# 서울시 미세먼지 경보(시간별)  
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300}
+#before
+tsv_1_seoul_hour_150 <- tsv_1_seoul_hour %>% filter(미세먼지 >= 150)
+tsv_1_seoul_hour_nrow <- nrow(tsv_1_seoul_hour_150)
+rm(tsv_1_seoul_hour_150)
+p1<-ggplot(tsv_1_seoul_hour, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  geom_text(aes(y=미세먼지,label= round(미세먼지, digits = 0)), vjust = -1, size = 2) +
+  geom_text(aes(y=초미세먼지,label= round(초미세먼지, digits = 0)),  vjust = -1, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkroyalblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2020,"~",year_2020_2, " 미세먼지 농도"))  + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "6 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0))
+  
+
+#######after
+tsv_2_seoul_hour_150 <- tsv_2_seoul_hour %>% filter(미세먼지 >= 150)
+tsv_2_seoul_hour_nrow <- nrow(tsv_2_seoul_hour_150)
+rm(tsv_2_seoul_hour_150)
+
+
+p2<-ggplot(tsv_2_seoul_hour, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  
+  geom_text(aes(y=미세먼지,label= round(미세먼지, digits = 0)), vjust = -1, size = 2) +
+  geom_text(aes(y=초미세먼지,label= round(초미세먼지, digits = 0)),  vjust = -1, size = 2) +
+  theme(legend.position = "right") +
+  #scale_color_manual(values = c('Y1' = 'darkroyalblue','Y2' = 'red')) + labs(color = 'Y series') +
+  
+  #scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  
+  ggtitle(paste0(year_2021,"~",year_2021_2, " 미세먼지 농도"))  + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"), axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "6 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0))
+  
+
+p1
+p2
+
+rm(p1)
+rm(p2)
+
+#############################주의보
+
+```  
+`r before_year`에서 미세먼지 주의보 발생횟수는 `r tsv_1_seoul_hour_nrow`회이고,    
+`r after_year`에서 미세먼지 주의보 발생횟수는 `r tsv_2_seoul_hour_nrow`회 이다.
+  
+  
+  
+  
+  
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300, fig.width=9, fig.height=40}
+
+tsv_1_seoul_hour_pm10_mean <- mean(tsv_1_seoul_hour$미세먼지)
+tsv_1_seoul_hour_pm2_mean <- mean(tsv_1_seoul_hour$초미세먼지)
+
+tsv_2_seoul_hour_pm10_mean <- mean(tsv_2_seoul_hour$미세먼지)
+tsv_2_seoul_hour_pm2_mean <- mean(tsv_2_seoul_hour$초미세먼지)
+
+tsv_1_seoul_hour_pm10_mean <- round(tsv_1_seoul_hour_pm10_mean)
+tsv_1_seoul_hour_pm2_mean <- round(tsv_1_seoul_hour_pm2_mean)
+tsv_2_seoul_hour_pm10_mean <- round(tsv_2_seoul_hour_pm10_mean)
+tsv_2_seoul_hour_pm2_mean <- round(tsv_2_seoul_hour_pm2_mean)
+
+tsv_1_seoul_hour_nrow <-nrow(tsv_1_seoul_hour)
+tsv_2_seoul_hour_nrow <-nrow(tsv_2_seoul_hour)
+
+
+
+#####연속 평균 이상 시간재기(before)
+###미세먼지
+tsv_1_seoul_hour_conclusion_pm10 <- tsv_1_seoul_hour
+tsv_1_seoul_hour_conclusion_pm10$conclusion <- ifelse(tsv_1_seoul_hour_conclusion_pm10$미세먼지 >= 150, 1, 0)
+tsv_1_seoul_hour_conclusion_pm10<- tsv_1_seoul_hour_conclusion_pm10 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_1_seoul_hour_conclusion_pm10 <- tsv_1_seoul_hour_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_1_seoul_hour_conclusion_nrow_pm10 <- nrow(tsv_1_seoul_hour_conclusion_pm10)
+
+###초미세먼지
+tsv_1_seoul_hour_conclusion_pm2 <- tsv_1_seoul_hour
+tsv_1_seoul_hour_conclusion_pm2$conclusion <- ifelse(tsv_1_seoul_hour_conclusion_pm2$초미세먼지 >= 75, 1, 0)
+tsv_1_seoul_hour_conclusion_pm2<- tsv_1_seoul_hour_conclusion_pm2 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_1_seoul_hour_conclusion_pm2 <- tsv_1_seoul_hour_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_1_seoul_hour_conclusion_nrow_pm2 <- nrow(tsv_1_seoul_hour_conclusion_pm2)
+
+#####연속 평균 이상 시간재기(after)
+###미세먼지
+tsv_2_seoul_hour_conclusion_pm10 <- tsv_2_seoul_hour
+tsv_2_seoul_hour_conclusion_pm10$conclusion <- ifelse(tsv_2_seoul_hour_conclusion_pm10$미세먼지 >= 150, 1, 0)
+tsv_2_seoul_hour_conclusion_pm10<- tsv_2_seoul_hour_conclusion_pm10 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_2_seoul_hour_conclusion_pm10 <- tsv_2_seoul_hour_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_2_seoul_hour_conclusion_nrow_pm10 <- nrow(tsv_2_seoul_hour_conclusion_pm10)
+
+###초미세먼지
+tsv_2_seoul_hour_conclusion_pm2 <- tsv_2_seoul_hour
+tsv_2_seoul_hour_conclusion_pm2$conclusion <- ifelse(tsv_2_seoul_hour_conclusion_pm2$초미세먼지 >= 75, 1, 0)
+tsv_2_seoul_hour_conclusion_pm2<- tsv_2_seoul_hour_conclusion_pm2 %>% group_by(비교날짜) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_2_seoul_hour_conclusion_pm2 <- tsv_2_seoul_hour_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_2_seoul_hour_conclusion_nrow_pm2 <- nrow(tsv_2_seoul_hour_conclusion_pm2)
+
+
+
+
+
+rm(tsv_1_seoul_hour_conclusion_pm10)
+rm(tsv_1_seoul_hour_conclusion_pm2)
+
+rm(tsv_2_seoul_hour_conclusion_pm10)
+rm(tsv_2_seoul_hour_conclusion_pm2)
+gc()
+```
+  
+`r year_2020` ~ `r year_2020_2`중에   
+미세먼지 경보 발생 시간(횟수) `r paste0('**',tsv_1_seoul_hour_conclusion_nrow_pm10,'**')`시간  
+초미세먼지 경보 발생 시간(횟수)`r paste0('**',tsv_1_seoul_hour_conclusion_nrow_pm2,'**')`시간 입니다.  
+
+`r year_2021` ~ `r year_2021_2`중에 
+미세먼지 경보 발생 시간(횟수) `r paste0('**',tsv_2_seoul_hour_conclusion_nrow_pm10,'**')` 시간 
+초미세먼지 경보 발생 시간(횟수) `r paste0('**',tsv_2_seoul_hour_conclusion_nrow_pm2,'**')`시간 입니다.  
+
+  
+
+# 자치구 일별 온습도 미세먼지 막대 그래프
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=9, fig.height=80}
+tsv_1_gover <- tsv_1 %>% group_by(date,gover) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+tsv_2_gover <- tsv_2 %>% group_by(date,gover) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+
+#자치구 일별 기온 습도
+tsv_1_gover_day_temp <- tsv_1 %>% group_by(date,gover) %>% summarise(기온 = mean(`기온 (℃)`,na.rm = TRUE))
+tsv_2_gover_day_temp <- tsv_2 %>% group_by(date,gover) %>% summarise(기온 = mean(`기온 (℃)`,na.rm = TRUE))
+
+tsv_1_gover_day_humid <- tsv_1 %>% group_by(date,gover) %>% summarise(습도 = mean(`상대습도 (%)`,na.rm = TRUE))
+tsv_2_gover_day_humid <- tsv_2 %>% group_by(date,gover) %>% summarise(습도 = mean(`상대습도 (%)`,na.rm = TRUE))
+
+#DUST MELT
+tsv_1_gover <- melt(tsv_1_gover, id.vars=c('date','gover'))
+tsv_2_gover <- melt(tsv_2_gover, id.vars=c('date','gover'))
+tsv_3_gover<-rbind(tsv_1_gover, tsv_2_gover)
+
+tsv_3_gover_2020 <- tsv_3_gover %>% filter(date >= year_2020 & date <=year_2020_2)
+tsv_3_gover_2021 <- tsv_3_gover %>% filter(date >= year_2021 & date <=year_2021_2)
+
+#TEMP, HUMID MELT
+
+#temp
+tsv_1_gover_day_temp <- melt(tsv_1_gover_day_temp, id.vars=c('date','gover'))
+tsv_2_gover_day_temp <- melt(tsv_2_gover_day_temp, id.vars=c('date','gover'))
+tsv_3_gover_day_temp <- rbind(tsv_1_gover_day_temp,tsv_2_gover_day_temp)
+
+tsv_3_gover_day_temp_2020 <- tsv_3_gover_day_temp %>% filter(date >= year_2020 & date <=year_2020_2)
+tsv_3_gover_day_temp_2021 <- tsv_3_gover_day_temp %>% filter(date >= year_2021 & date <=year_2021_2)
+
+#humid
+tsv_1_gover_day_humid <- melt(tsv_1_gover_day_humid, id.vars=c('date','gover'))
+tsv_2_gover_day_humid <- melt(tsv_2_gover_day_humid, id.vars=c('date','gover'))
+tsv_3_gover_day_humid <- rbind(tsv_1_gover_day_humid,tsv_2_gover_day_humid)
+
+tsv_3_gover_day_humid_2020 <- tsv_3_gover_day_humid %>% filter(date >= year_2020 & date <=year_2020_2)
+tsv_3_gover_day_humid_2021 <- tsv_3_gover_day_humid %>% filter(date >= year_2021 & date <=year_2021_2)
+
+
+
+#fine_dust graph
+p1<-ggplot(tsv_3_gover_2020, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity", position="dodge",show.legend=TRUE, colour="black") +
+  #scale_color_gradient2(low = "green", mid = "yellow", high = "red", midpoint = max(tsv_2_seoul$value)/2) +
+  #geom_text(aes(label = value), vjust = -0.5, colour = "black") +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4, position=position_dodge(width=0.9), vjust=-0.25) +
+  
+  ylab('미세먼지&초미세먼지 농도') + 
+  #ggtitle(paste0(year_2020,"~",year_2020_2, " 미세먼지 농도"))  + ylab("미세먼지 농도") +
+  
+  labs(title=paste0(year_2020,"~",year_2020_2, " 미세먼지 농도")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  #geom_hline(yintercept=mean(tsv_2_seoul$미세먼지), color="grey",linetype='dashed') +
+  theme_bw() + 
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  #facet_grid(gover ~ scales = "free_x") 
+  facet_wrap(~gover, ncol = 1,scales = "free_x")
+
+
+p2<-ggplot(tsv_3_gover_2021, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity", position="dodge",show.legend=TRUE, colour="black") +
+  #scale_color_gradient2(low = "green", mid = "yellow", high = "red", midpoint = max(tsv_2_seoul$value)/2) +
+  #geom_text(aes(label = value), vjust = -0.5, colour = "black") +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4 ,position=position_dodge(width=0.9), vjust=-0.25) +
+
+
+  labs(title=paste0(year_2021,"~",year_2021_2, " 미세먼지 농도")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  #geom_hline(yintercept=mean(tsv_2_seoul$미세먼지), color="grey",linetype='dashed') +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  #facet_grid(gover ~ scales = "free_x")
+  facet_wrap(~gover, ncol = 1,scales = "free_x")
+
+
+p<-ggarrange(p1, p2,    ncol = 2)
+p
+
+p1_temp <-ggplot(tsv_3_gover_day_temp_2020, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.5) +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4, vjust=-0.25) +
+  
+  ylab('기온') + 
+  
+  labs(title=paste0(year_2020,"~",year_2020_2, " 기온")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  theme_bw() + 
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  facet_wrap(~gover, ncol = 1,scales = "free_x") 
+
+p2_temp <-ggplot(tsv_3_gover_day_temp_2021, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.5) +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4, vjust=-0.25) +
+  
+  ylab('기온') + 
+  
+  labs(title=paste0(year_2021,"~",year_2021_2, " 기온")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  theme_bw() + 
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  facet_wrap(~gover, ncol = 1,scales = "free_x") 
+
+p_temp<-ggarrange(p1_temp, p2_temp,    ncol = 2)
+p_temp
+
+rm(p_temp)
+
+p1_humid <-ggplot(tsv_3_gover_day_humid_2020, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.5,fill = 'royalblue') +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4, vjust=-0.25) +
+  
+  ylab('습도') + 
+  
+  labs(title=paste0(year_2020,"~",year_2020_2, " 상대습도")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  theme_bw() + 
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  facet_wrap(~gover, ncol = 1,scales = "free_x") 
+
+p2_humid <-ggplot(tsv_3_gover_day_humid_2021, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity",show.legend=TRUE, colour="black",width = 0.5,fill = 'royalblue') +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4, vjust=-0.25) +
+  
+  ylab('습도') + 
+  
+  labs(title=paste0(year_2021,"~",year_2021_2, " 상대습도")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  theme_bw() + 
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  facet_wrap(~gover, ncol = 1,scales = "free_x") 
+
+p_humid<-ggarrange(p1_humid, p2_humid,    ncol = 2)
+p_humid
+
+
+rm(p_humid)
+rm(tsv_1_gover_day_humid)
+rm(tsv_1_gover_day_temp)
+
+rm(tsv_2_gover_day_humid)
+rm(tsv_2_gover_day_temp)
+
+rm(tsv_3_gover_day_humid)
+rm(tsv_3_gover_day_humid_2020)
+rm(tsv_3_gover_day_humid_2021)
+
+rm(tsv_3_gover_day_temp)
+rm(tsv_3_gover_day_temp_2020)
+rm(tsv_3_gover_day_temp_2021)
+
+gc()
+
+```
+
+
+# 서울시 자치구별 평균 지도
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=8, fig.height=8}
+#지도 시작
+#지도의 경우 서울시 전체를 하는것이 의미가 없음(자치구 별 = 서울시 전체)
+#따라서 자치구 단계부터 지도를 그리기 시작하도록 한다. 
+
+#지도 shp불러오기 시작
+map <- shapefile("C:/Users/zpzg/Downloads/사본(1) - level/level/basic_data/시군구/TL_SCCO_SIG.shp")
+map <- spTransform(map, CRSobj = CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'))
+new_map <- fortify(map, region = 'SIG_CD')
+new_map$id <- as.numeric(new_map$id)
+
+rm(map)
+
+#시군구 코드 11740 이하의 값이 서울시에 포함된 자치구임
+seoul_map <- new_map[new_map$id<=11740,]
+rm(new_map)
+
+#자치구 코드파일 불러오기
+gover_code <- read.csv('C:/Users/zpzg/Downloads/사본(1) - level/level/basic_data/gover_code.csv')
+
+#1. 5.6~5.9 기간 전체 평균 
+
+#미세먼지부터 
+tsv1_gu_pm10_seoul_map <- tsv_1 %>% group_by(gover) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv1_gu_pm10_seoul_map$gover <- as.character(tsv1_gu_pm10_seoul_map$gover)
+
+tsv1_merge_pm10_seoul_map<- merge(tsv1_gu_pm10_seoul_map,gover_code,by="gover")
+tsv1_merge_pm10_seoul_map$id <- as.numeric(tsv1_merge_pm10_seoul_map$id)
+tsv1_merge_pm10_seoul_map <- merge(seoul_map,tsv1_merge_pm10_seoul_map,by='id')
+
+#자치구 이름
+#gu_name <- tsv1_merge_pm10_seoul_map %>% group_by(gover) %>% summarise(long =mean(`long`, na.rm =TRUE ),lat=mean(`lat`,na.rm = TRUE))
+
+
+gu_name <- read.csv('C:/Users/zpzg/Downloads/사본(1) - level/level/gu_name.csv')
+
+
+gu_name_value <- merge(gu_name,tsv1_gu_pm10_seoul_map, by = 'gover')
+gu_name_value$미세먼지 <- round(gu_name_value$미세먼지,1)
+
+
+rm(tsv1_gu_pm10_seoul_map)
+
+#미세먼지 등급별 구분 
+#순서고정
+tsv1_merge_pm10_seoul_map$standard[tsv1_merge_pm10_seoul_map$미세먼지 >150] = 4 
+tsv1_merge_pm10_seoul_map$standard[tsv1_merge_pm10_seoul_map$미세먼지 <=150] = 3 
+tsv1_merge_pm10_seoul_map$standard[tsv1_merge_pm10_seoul_map$미세먼지 <=80] = 2 
+tsv1_merge_pm10_seoul_map$standard[tsv1_merge_pm10_seoul_map$미세먼지 <=30] = 1 
+
+plot1 <- ggplot()+
+  geom_polygon(
+    data = tsv1_merge_pm10_seoul_map,colour = 'black' ,
+      aes(x=long, y=lat, group=group ,
+      fill = factor(standard))) +
+  scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+  theme_bw() + 
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,미세먼지,sep = '\n')),size = 3, vjust = -0.25)+
+  labs(title = "2020년 서울시 자치구별 미세먼지 평균")
+
+plot1
+rm(tsv1_merge_pm10_seoul_map)
+rm(plot1)
+
+
+#2021자치구별 미세(일별아님)
+tsv2_gu_pm10_seoul_map <- tsv_2 %>% group_by(gover) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv2_gu_pm10_seoul_map$gover <- as.character(tsv2_gu_pm10_seoul_map$gover)
+
+tsv2_merge_pm10_seoul_map<- merge(tsv2_gu_pm10_seoul_map,gover_code,by="gover")
+tsv2_merge_pm10_seoul_map$id <- as.numeric(tsv2_merge_pm10_seoul_map$id)
+tsv2_merge_pm10_seoul_map <- merge(seoul_map,tsv2_merge_pm10_seoul_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_pm10_seoul_map, by = 'gover')
+gu_name_value$미세먼지 <- round(gu_name_value$미세먼지,1)
+
+rm(tsv2_gu_pm10_seoul_map)
+
+#미세먼지 기준
+tsv2_merge_pm10_seoul_map$standard[tsv2_merge_pm10_seoul_map$미세먼지 >150] = 4 
+tsv2_merge_pm10_seoul_map$standard[tsv2_merge_pm10_seoul_map$미세먼지 <=150] = 3 
+tsv2_merge_pm10_seoul_map$standard[tsv2_merge_pm10_seoul_map$미세먼지 <=80] = 2 
+tsv2_merge_pm10_seoul_map$standard[tsv2_merge_pm10_seoul_map$미세먼지 <=30] = 1
+
+
+plotp <- ggplot()+
+  geom_polygon(data = tsv2_merge_pm10_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+  scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+  theme_bw() + 
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,미세먼지,sep = '\n')),size = 3, vjust = -0.25)+
+  labs(title = "2021년 서울시 자치구별 미세먼지 평균")
+
+plotp
+rm(tsv2_merge_pm10_seoul_map)
+rm(plotp)
+
+#2020년 자치구별 초미세 (일별아님)
+tsv1_gu_pm25_seoul_map <- tsv_1 %>% group_by(gover) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv1_gu_pm25_seoul_map$gover <- as.character(tsv1_gu_pm25_seoul_map$gover)
+
+tsv1_merge_pm25_seoul_map<- merge(tsv1_gu_pm25_seoul_map,gover_code,by="gover")
+tsv1_merge_pm25_seoul_map$id <- as.numeric(tsv1_merge_pm25_seoul_map$id)
+tsv1_merge_pm25_seoul_map <- merge(seoul_map,tsv1_merge_pm25_seoul_map,by='id')
+gu_name_value <- merge(gu_name,tsv1_gu_pm25_seoul_map, by = 'gover')
+gu_name_value$초미세먼지 <- round(gu_name_value$초미세먼지,1)
+
+rm(tsv1_gu_pm25_seoul_map)
+
+#미세먼지 등급
+tsv1_merge_pm25_seoul_map$standard[tsv1_merge_pm25_seoul_map$초미세먼지 >75] = 4 
+tsv1_merge_pm25_seoul_map$standard[tsv1_merge_pm25_seoul_map$초미세먼지 <=75] = 3 
+tsv1_merge_pm25_seoul_map$standard[tsv1_merge_pm25_seoul_map$초미세먼지 <=35] = 2 
+tsv1_merge_pm25_seoul_map$standard[tsv1_merge_pm25_seoul_map$초미세먼지 <=15] = 1
+
+
+
+plotp <- ggplot()+
+  geom_polygon(data = tsv1_merge_pm25_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+  scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+  theme_bw() + 
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,초미세먼지,sep = '\n')),size = 3, vjust = -0.25)+
+  labs(title = "2020년 서울시 자치구별 초미세먼지 평균")
+
+plotp
+rm(tsv1_merge_pm25_seoul_map)
+rm(plotp)
+
+#2021년 자치구별 초미세 (일별아님)
+tsv2_gu_pm25_seoul_map <- tsv_2 %>% group_by(gover) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv2_gu_pm25_seoul_map$gover <- as.character(tsv2_gu_pm25_seoul_map$gover)
+
+tsv2_merge_pm25_seoul_map<- merge(tsv2_gu_pm25_seoul_map,gover_code,by="gover")
+tsv2_merge_pm25_seoul_map$id <- as.numeric(tsv2_merge_pm25_seoul_map$id)
+tsv2_merge_pm25_seoul_map <- merge(seoul_map,tsv2_merge_pm25_seoul_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_pm25_seoul_map, by = 'gover')
+gu_name_value$초미세먼지 <- round(gu_name_value$초미세먼지,1)
+
+rm(tsv2_gu_pm25_seoul_map)
+
+tsv2_merge_pm25_seoul_map$standard[tsv2_merge_pm25_seoul_map$초미세먼지 >75] = 4 
+tsv2_merge_pm25_seoul_map$standard[tsv2_merge_pm25_seoul_map$초미세먼지 <=75] = 3 
+tsv2_merge_pm25_seoul_map$standard[tsv2_merge_pm25_seoul_map$초미세먼지 <=35] = 2 
+tsv2_merge_pm25_seoul_map$standard[tsv2_merge_pm25_seoul_map$초미세먼지 <=15] = 1
+
+
+
+plotp <- ggplot()+
+  geom_polygon(data = tsv2_merge_pm25_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+  theme_bw() +
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,초미세먼지,sep = '\n')),size = 3, vjust = -0.25)+
+  labs(title = "2021년 서울시 자치구별 초미세먼지 평균")
+
+plotp
+rm(tsv2_merge_pm25_seoul_map)
+rm(plotp)
+
+
+###################################
+#먼지끝 기온 습도 시작 
+##################################
+
+#2020년 자치구별 기온 (일별아님)
+tsv1_gu_temp_seoul_map <- tsv_1 %>% group_by(gover) %>% summarise(기온 =mean(`기온 (℃)`, na.rm =TRUE ))
+tsv1_gu_temp_seoul_map$gover <- as.character(tsv1_gu_temp_seoul_map$gover)
+
+tsv1_merge_temp_seoul_map<- merge(tsv1_gu_temp_seoul_map,gover_code,by="gover")
+tsv1_merge_temp_seoul_map$id <- as.numeric(tsv1_merge_temp_seoul_map$id)
+tsv1_merge_temp_seoul_map <- merge(seoul_map,tsv1_merge_temp_seoul_map,by='id')
+gu_name_value <- merge(gu_name,tsv1_gu_temp_seoul_map, by = 'gover')
+gu_name_value$기온 <- round(gu_name_value$기온,1)
+
+rm(tsv1_gu_temp_seoul_map)
+
+#tsv1_merge_temp_seoul_map$기온 <- round(tsv1_merge_temp_seoul_map$기온,0)
+plotp <- ggplot()+
+  geom_polygon(data = tsv1_merge_temp_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =기온)) +
+  scale_fill_gradient(low = "#ffe5e5", high = "#ff3232",space = "Lab",guide = "colourbar") +
+  theme_bw() + 
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,기온,sep = '\n')),size = 3, vjust = -0.25)+
+  labs(title = "2020년 서울시 자치구별 평균기온")
+
+plotp
+rm(tsv1_merge_temp_seoul_map)
+rm(plotp)
+
+#2021년 자치구별 기온 (일별아님)
+tsv2_gu_temp_seoul_map <- tsv_2 %>% group_by(gover) %>% summarise(기온 =mean(`기온 (℃)`, na.rm =TRUE ))
+tsv2_gu_temp_seoul_map$gover <- as.character(tsv2_gu_temp_seoul_map$gover)
+
+tsv2_merge_temp_seoul_map<- merge(tsv2_gu_temp_seoul_map,gover_code,by="gover")
+tsv2_merge_temp_seoul_map$id <- as.numeric(tsv2_merge_temp_seoul_map$id)
+tsv2_merge_temp_seoul_map <- merge(seoul_map,tsv2_merge_temp_seoul_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_temp_seoul_map, by = 'gover')
+gu_name_value$기온 <- round(gu_name_value$기온,2)
+
+rm(tsv2_gu_temp_seoul_map)
+
+tsv2_merge_temp_seoul_map$기온 <- round(tsv2_merge_temp_seoul_map$기온,1)
+plotp <- ggplot()+
+  geom_polygon(data = tsv2_merge_temp_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =기온)) +
+  scale_fill_gradient(low = "#ffe5e5", high = "#ff3232",space = "Lab",guide = "colourbar") +
+  theme_bw() + 
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,기온,sep = '\n')),size = 3, vjust = -0.25)+
+  labs(title = "2021년 서울시 자치구별 평균기온")
+
+plotp
+rm(tsv2_merge_temp_seoul_map)
+rm(plotp)
+
+
+#2020년 자치구별 습도 (일별아님)
+tsv1_gu_humid_seoul_map <- tsv_1 %>% group_by(gover) %>% summarise(습도 =mean(`상대습도 (%)`, na.rm =TRUE ))
+tsv1_gu_humid_seoul_map$gover <- as.character(tsv1_gu_humid_seoul_map$gover)
+
+tsv1_merge_humid_seoul_map<- merge(tsv1_gu_humid_seoul_map,gover_code,by="gover")
+tsv1_merge_humid_seoul_map$id <- as.numeric(tsv1_merge_humid_seoul_map$id)
+tsv1_merge_humid_seoul_map <- merge(seoul_map,tsv1_merge_humid_seoul_map,by='id')
+gu_name_value <- merge(gu_name,tsv1_gu_humid_seoul_map, by = 'gover')
+gu_name_value$습도 <- round(gu_name_value$습도,1)
+
+rm(tsv1_gu_humid_seoul_map)
+
+#tsv1_merge_temp_seoul_map$기온 <- round(tsv1_merge_temp_seoul_map$기온,0)
+plotp <- ggplot()+
+  geom_polygon(data = tsv1_merge_humid_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =습도)) +
+  scale_fill_gradient(low = "skyblue", high = "royalblue",space = "Lab",guide = "colourbar") +
+  theme_bw() + 
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,습도,sep = '\n')),size = 3, vjust = -0.25)+
+  labs(title = "2020년 서울시 자치구별 평균습도")
+
+plotp
+rm(tsv1_merge_humid_seoul_map)
+rm(plotp)
+
+#2021년 자치구별 습도 (일별아님)
+tsv2_gu_humid_seoul_map <- tsv_2 %>% group_by(gover) %>% summarise(습도 =mean(`상대습도 (%)`, na.rm =TRUE ))
+tsv2_gu_humid_seoul_map$gover <- as.character(tsv2_gu_humid_seoul_map$gover)
+
+tsv2_merge_humid_seoul_map<- merge(tsv2_gu_humid_seoul_map,gover_code,by="gover")
+tsv2_merge_humid_seoul_map$id <- as.numeric(tsv2_merge_humid_seoul_map$id)
+tsv2_merge_humid_seoul_map <- merge(seoul_map,tsv2_merge_humid_seoul_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_humid_seoul_map, by = 'gover')
+gu_name_value$습도 <- round(gu_name_value$습도,1)
+
+rm(tsv2_gu_humid_seoul_map)
+
+#tsv1_merge_temp_seoul_map$기온 <- round(tsv1_merge_temp_seoul_map$기온,0)
+plotp <- ggplot()+
+  geom_polygon(data = tsv2_merge_humid_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =습도)) +
+  scale_fill_gradient(low = "skyblue", high = "royalblue",space = "Lab",guide = "colourbar") +
+  theme_bw() + 
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,습도,sep = '\n')),size = 3, vjust = -0.25,facetext = 'bold')+
+  labs(title = "2021년 서울시 자치구별 평균습도")
+
+plotp
+rm(tsv2_merge_humid_seoul_map)
+rm(plotp)
+
+rm(p)
+rm(p1)
+rm(p2)
+rm(p1_humid)
+rm(p2_humid)
+rm(p1_temp)
+rm(p2_temp)
+
+gc()
+
+
+```
+
+# 서울시 자치구 일별 평균 지도
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=20, fig.height=20}
+#2020년 자치구별 미세 (일별임)
+tsv1_gu_pm10_day_map <- tsv_1 %>% group_by(gover,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv1_gu_pm10_day_map$gover <- as.character(tsv1_gu_pm10_day_map$gover)
+
+tsv1_merge_pm10_day_map<- merge(tsv1_gu_pm10_day_map,gover_code,by="gover")
+tsv1_merge_pm10_day_map$id <- as.numeric(tsv1_merge_pm10_day_map$id)
+tsv1_merge_pm10_day_map <- merge(seoul_map,tsv1_merge_pm10_day_map,by='id')
+gu_name_value <- merge(gu_name,tsv1_gu_pm10_day_map, by = 'gover')
+gu_name_value$미세먼지 <- round(gu_name_value$미세먼지,1)
+
+rm(tsv1_gu_pm10_day_map)
+
+tsv1_merge_pm10_day_map$standard[tsv1_merge_pm10_day_map$미세먼지 >150] = 4 
+tsv1_merge_pm10_day_map$standard[tsv1_merge_pm10_day_map$미세먼지 <=150] = 3 
+tsv1_merge_pm10_day_map$standard[tsv1_merge_pm10_day_map$미세먼지 <=80] = 2 
+tsv1_merge_pm10_day_map$standard[tsv1_merge_pm10_day_map$미세먼지 <=30] = 1 
+
+plotp <- ggplot()+
+  geom_polygon(data = tsv1_merge_pm10_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+  scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+  theme_bw() + 
+  facet_wrap(~date,scales = "free_x")+
+
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,미세먼지,sep = '\n')),size = 6, vjust = -0.25)+
+  labs(title = "2020년 서울시 일별, 자치구별 미세먼지 평균")
+
+plotp
+rm(plotp)
+rm(tsv1_merge_pm10_day_map)
+
+#amp <- n_map +
+#  transition_states(date, 3, 20)
+
+
+ # mapGIF <- animate(amp) 
+
+
+
+#2021년 자치구별 미세 (일별임)
+tsv2_gu_pm10_day_map <- tsv_2 %>% group_by(gover,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv2_gu_pm10_day_map$gover <- as.character(tsv2_gu_pm10_day_map$gover)
+
+tsv2_merge_pm10_day_map<- merge(tsv2_gu_pm10_day_map,gover_code,by="gover")
+tsv2_merge_pm10_day_map$id <- as.numeric(tsv2_merge_pm10_day_map$id)
+tsv2_merge_pm10_day_map <- merge(seoul_map,tsv2_merge_pm10_day_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_pm10_day_map, by = 'gover')
+gu_name_value$미세먼지 <- round(gu_name_value$미세먼지,1)
+
+rm(tsv2_gu_pm10_day_map)
+
+tsv2_merge_pm10_day_map$standard[tsv2_merge_pm10_day_map$미세먼지 >150] = 4 
+tsv2_merge_pm10_day_map$standard[tsv2_merge_pm10_day_map$미세먼지 <=150] = 3 
+tsv2_merge_pm10_day_map$standard[tsv2_merge_pm10_day_map$미세먼지 <=80] = 2 
+tsv2_merge_pm10_day_map$standard[tsv2_merge_pm10_day_map$미세먼지 <=30] = 1 
+
+plotp <- ggplot()+
+  geom_polygon(data = tsv2_merge_pm10_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+ scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+  theme_bw() + 
+  facet_wrap(~date,scales = "free_x")+
+
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,미세먼지,sep = '\n')),size = 6, vjust = -0.25)+
+  labs(title = "2021년 서울시 일별, 자치구별 미세먼지 평균")
+
+plotp
+rm(plotp)
+rm(tsv2_merge_pm10_day_map)
+
+#2020년 자치구별 초미세 (일별임)
+tsv1_gu_pm25_day_map <- tsv_1 %>% group_by(gover,date) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv1_gu_pm25_day_map$gover <- as.character(tsv1_gu_pm25_day_map$gover)
+
+tsv1_merge_pm25_day_map<- merge(tsv1_gu_pm25_day_map,gover_code,by="gover")
+tsv1_merge_pm25_day_map$id <- as.numeric(tsv1_merge_pm25_day_map$id)
+tsv1_merge_pm25_day_map <- merge(seoul_map,tsv1_merge_pm25_day_map,by='id')
+gu_name_value <- merge(gu_name,tsv1_gu_pm25_day_map, by = 'gover')
+gu_name_value$초미세먼지 <- round(gu_name_value$초미세먼지,1)
+
+rm(tsv1_gu_pm25_day_map)
+
+tsv1_merge_pm25_day_map$standard[tsv1_merge_pm25_day_map$초미세먼지 >75] = 4 
+tsv1_merge_pm25_day_map$standard[tsv1_merge_pm25_day_map$초미세먼지 <=75] = 3 
+tsv1_merge_pm25_day_map$standard[tsv1_merge_pm25_day_map$초미세먼지 <=35] = 2 
+tsv1_merge_pm25_day_map$standard[tsv1_merge_pm25_day_map$초미세먼지 <=15] = 1
+
+
+plotp <- ggplot()+
+  geom_polygon(data = tsv1_merge_pm25_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+  scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+  theme_bw() + 
+  facet_wrap(~date,scales = "free_x")+
+  
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,초미세먼지,sep = '\n')),size = 6, vjust = -0.25)+
+  labs(title = "2020년 서울시 일별, 자치구별 초미세먼지 평균")
+
+plotp
+rm(plotp)
+rm(tsv1_merge_pm25_day_map)
+
+
+#2021년 자치구별 초미세 (일별임)
+tsv2_gu_pm25_day_map <- tsv_2 %>% group_by(gover,date) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv2_gu_pm25_day_map$gover <- as.character(tsv2_gu_pm25_day_map$gover)
+
+tsv2_merge_pm25_day_map<- merge(tsv2_gu_pm25_day_map,gover_code,by="gover")
+tsv2_merge_pm25_day_map$id <- as.numeric(tsv2_merge_pm25_day_map$id)
+tsv2_merge_pm25_day_map <- merge(seoul_map,tsv2_merge_pm25_day_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_pm25_day_map, by = 'gover')
+gu_name_value$초미세먼지 <- round(gu_name_value$초미세먼지,1)
+
+rm(tsv2_gu_pm25_day_map)
+
+tsv2_merge_pm25_day_map$standard[tsv2_merge_pm25_day_map$초미세먼지 >75] = 4 
+tsv2_merge_pm25_day_map$standard[tsv2_merge_pm25_day_map$초미세먼지 <=75] = 3 
+tsv2_merge_pm25_day_map$standard[tsv2_merge_pm25_day_map$초미세먼지 <=35] = 2 
+tsv2_merge_pm25_day_map$standard[tsv2_merge_pm25_day_map$초미세먼지 <=15] = 1
+
+
+plotp <- ggplot()+
+  geom_polygon(data = tsv2_merge_pm25_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+  scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+  theme_bw() + 
+  facet_wrap(~date,scales = "free_x")+
+  
+  geom_text(data = gu_name_value , aes(x=long, y=lat, label = paste(gover,초미세먼지,sep = '\n')),size = 6, vjust = -0.25)+
+  labs(title = "2021년 서울시 일별, 자치구별 초미세먼지 평균")
+
+plotp
+rm(plotp)
+rm(tsv2_merge_pm25_day_map)
+
+
+rm(tsv_1_seoul_hour_conclusion_nrow_pm10)
+rm(tsv_1_seoul_hour_conclusion_nrow_pm2)
+
+rm(tsv_2_seoul_hour_conclusion_nrow_pm10)
+rm(tsv_2_seoul_hour_conclusion_nrow_pm2)
+
+rm(tsv_1_seoul_hour_nrow)
+rm(tsv_2_seoul_hour_nrow)
+
+gc()
+
+```
+
+
+
+# 자치구 시간별 미세먼지 (꺾은선 그래프)
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=10, fig.height=90}
+tsv_1_gover_hour <- tsv_1 %>% group_by(측정시간,gover,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+tsv_2_gover_hour <- tsv_2 %>% group_by(측정시간,gover,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+
+# tsv_1_gover_hour <- melt(tsv_1_gover_hour, id.vars=c('측정시간','gover','date'))
+# tsv_2_gover_hour <- melt(tsv_2_gover_hour, id.vars=c('측정시간','gover','date'))
+# tsv_3_gover_hour <-rbind(tsv_1_gover_hour, tsv_2_gover_hour)
+
+tsv_3_gover_hour_2020 <- tsv_1_gover_hour %>% filter(date >= year_2020 & date <=year_2020_2)
+tsv_3_gover_hour_2021 <- tsv_2_gover_hour %>% filter(date >= year_2021 & date <=year_2021_2)
+
+p1<-ggplot(tsv_3_gover_hour_2020, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  facet_wrap(~gover, ncol = 1, scale = "free") + theme(legend.position = "right") +
+   
+  
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "6 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0)) +
+  
+  
+  ggtitle(paste0(year_2020,"~",year_2020_2, " 미세먼지 농도")) + xlab("시간") + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"), axis.text.x = element_text(angle=90, hjust=1))
+  
+
+
+p2<-ggplot(tsv_3_gover_hour_2021, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  facet_wrap(~gover, ncol = 1, scale = "free") + theme(legend.position = "right") +
+  
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "6 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0)) +
+  
+  ggtitle(paste0(year_2021,"~",year_2021_2, " 미세먼지 농도")) + xlab("시간") + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"), axis.text.x = element_text(angle=90, hjust=1))
+
+p<-ggarrange(p1, p2,    ncol = 2)
+p
+
+rm(p)
+rm(p1)
+rm(p2)
+
+
+gc()
+
+```
+
+# 서울시 자치구 시간별 평균 지도
+
+#2020년 자치구 시간별 미세먼지 평균 
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=40, fig.height=120}
+
+
+#2020년 자치구별 미세 (일별임)
+tsv1_gu_pm10_hour_map <- tsv_1 %>% group_by(gover,date,측정시간) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv1_gu_pm10_hour_map$gover <- as.character(tsv1_gu_pm10_hour_map$gover)
+
+tsv1_merge_pm10_hour_map<- merge(tsv1_gu_pm10_hour_map,gover_code,by="gover")
+tsv1_merge_pm10_hour_map$id <- as.numeric(tsv1_merge_pm10_hour_map$id)
+tsv1_merge_pm10_hour_map <- merge(seoul_map,tsv1_merge_pm10_hour_map,by='id')
+gu_name_value <- merge(gu_name,tsv1_gu_pm10_hour_map, by = 'gover')
+gu_name_value$미세먼지 <- round(gu_name_value$미세먼지,0)
+
+rm(tsv1_gu_pm10_hour_map)
+
+tsv1_merge_pm10_hour_map$standard[tsv1_merge_pm10_hour_map$미세먼지 >150] = 4 
+tsv1_merge_pm10_hour_map$standard[tsv1_merge_pm10_hour_map$미세먼지 <=150] = 3 
+tsv1_merge_pm10_hour_map$standard[tsv1_merge_pm10_hour_map$미세먼지 <=80] = 2 
+tsv1_merge_pm10_hour_map$standard[tsv1_merge_pm10_hour_map$미세먼지 <=30] = 1 
+
+plotp <- ggplot()+
+    geom_polygon(data = seoul_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv1_merge_pm10_hour_map,colour = 'black' ,aes(x=long, y=lat,group = group, fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+    theme_bw()  +
+    transition_time(측정시간)+
+    enter_fade()+
+    labs(title = "2020년 서울시 시간별, 자치구별 미세먼지 평균", subtitle = "측정시간: {frame_time}")
+
+ani_plot1 <- animate(plotp,duration = length(unique(tsv1_merge_pm10_hour_map$측정시간)), fps = 1)
+ani_plot1
+
+rm(ani_plot1)
+rm(tsv1_merge_pm10_hour_map)
+rm(plotp)
+gc()
+
+
+```
+
+
+#2021년 자치구 시간별 미세먼지 평균
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=40, fig.height=120}
+
+
+#2021년 자치구별 미세 (시간별임)
+tsv2_gu_pm10_hour_map <- tsv_2 %>% group_by(gover,date,측정시간) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv2_gu_pm10_hour_map$gover <- as.character(tsv2_gu_pm10_hour_map$gover)
+
+tsv2_merge_pm10_hour_map<- merge(tsv2_gu_pm10_hour_map,gover_code,by="gover")
+tsv2_merge_pm10_hour_map$id <- as.numeric(tsv2_merge_pm10_hour_map$id)
+tsv2_merge_pm10_hour_map <- merge(seoul_map,tsv2_merge_pm10_hour_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_pm10_hour_map, by = 'gover')
+gu_name_value$미세먼지 <- round(gu_name_value$미세먼지,0)
+
+rm(tsv2_gu_pm10_hour_map)
+
+tsv2_merge_pm10_hour_map$standard[tsv2_merge_pm10_hour_map$미세먼지 >150] = 4 
+tsv2_merge_pm10_hour_map$standard[tsv2_merge_pm10_hour_map$미세먼지 <=150] = 3 
+tsv2_merge_pm10_hour_map$standard[tsv2_merge_pm10_hour_map$미세먼지 <=80] = 2 
+tsv2_merge_pm10_hour_map$standard[tsv2_merge_pm10_hour_map$미세먼지 <=30] = 1 
+
+plotp <- ggplot()+
+    geom_polygon(data = seoul_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv2_merge_pm10_hour_map,colour = 'black' ,aes(x=long, y=lat,group = group, fill =factor(standard))) +
+    #geom_polygon(data = tsv1_merge_pm10_hour_map,colour = 'black' ,aes(x=long, y=lat,group = group))
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+    theme_bw()  +
+    transition_time(측정시간)+
+    enter_fade()+
+    #ease_aes('cubic-in-out')
+    labs(title = "2021년 서울시 시간별, 자치구별 미세먼지 평균" , subtitle = "측정시간: {frame_time}")
+
+
+
+ani_plot2 <- animate(plotp, duration = length(unique(tsv2_merge_pm10_hour_map$측정시간)), fps = 1)
+ani_plot2
+
+
+rm(plotp)
+rm(tsv2_merge_pm10_hour_map)
+rm(ani_plot2)
+
+gc()
+
+```
+
+
+
+
+#2020년 자치구 시간별 초미세먼지 평균
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=40, fig.height=120}
+
+
+#2020년 자치구 시간별 초미세먼지 평균
+tsv1_gu_pm25_hour_map <- tsv_1 %>% group_by(gover,date,측정시간) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv1_gu_pm25_hour_map$gover <- as.character(tsv1_gu_pm25_hour_map$gover)
+
+tsv1_merge_pm25_hour_map<- merge(tsv1_gu_pm25_hour_map,gover_code,by="gover")
+tsv1_merge_pm25_hour_map$id <- as.numeric(tsv1_merge_pm25_hour_map$id)
+tsv1_merge_pm25_hour_map <- merge(seoul_map,tsv1_merge_pm25_hour_map,by='id')
+gu_name_value <- merge(gu_name,tsv1_gu_pm25_hour_map, by = 'gover')
+gu_name_value$초미세먼지 <- round(gu_name_value$초미세먼지,0)
+
+rm(tsv1_gu_pm25_hour_map)
+
+tsv1_merge_pm25_hour_map$standard[tsv1_merge_pm25_hour_map$초미세먼지 >75] = 4 
+tsv1_merge_pm25_hour_map$standard[tsv1_merge_pm25_hour_map$초미세먼지 <=75] = 3 
+tsv1_merge_pm25_hour_map$standard[tsv1_merge_pm25_hour_map$초미세먼지 <=35] = 2 
+tsv1_merge_pm25_hour_map$standard[tsv1_merge_pm25_hour_map$초미세먼지 <=15] = 1 
+
+plotp <- ggplot()+
+    geom_polygon(data = seoul_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv1_merge_pm25_hour_map,colour = 'black' ,aes(x=long, y=lat,group = group, fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+    theme_bw()  +
+    transition_time(측정시간)+
+    enter_fade()+
+    labs(title = "2020년 서울시 시간별, 자치구별 초미세먼지 평균", subtitle = "측정시간: {frame_time}")
+
+ani_plot1 <- animate(plotp,duration = length(unique(tsv1_merge_pm25_hour_map$측정시간)), fps = 1)
+ani_plot1
+
+rm(ani_plot1)
+rm(plotp)
+rm(tsv1_merge_pm25_hour_map)
+
+gc()
+
+```
+
+#2021년 자치구 시간별 초미세먼지 평균
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=40, fig.height=120}
+
+
+#2021년 자치구 시간별 초미세 평균
+tsv2_gu_pm25_hour_map <- tsv_2 %>% group_by(gover,date,측정시간) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+tsv2_gu_pm25_hour_map$gover <- as.character(tsv2_gu_pm25_hour_map$gover)
+
+tsv2_merge_pm25_hour_map<- merge(tsv2_gu_pm25_hour_map,gover_code,by="gover")
+tsv2_merge_pm25_hour_map$id <- as.numeric(tsv2_merge_pm25_hour_map$id)
+tsv2_merge_pm25_hour_map <- merge(seoul_map,tsv2_merge_pm25_hour_map,by='id')
+gu_name_value <- merge(gu_name,tsv2_gu_pm25_hour_map, by = 'gover')
+gu_name_value$초미세먼지 <- round(gu_name_value$초미세먼지,0)
+
+rm(tsv2_gu_pm25_hour_map)
+
+tsv2_merge_pm25_hour_map$standard[tsv2_merge_pm25_hour_map$초미세먼지 >75] = 4 
+tsv2_merge_pm25_hour_map$standard[tsv2_merge_pm25_hour_map$초미세먼지 <=75] = 3 
+tsv2_merge_pm25_hour_map$standard[tsv2_merge_pm25_hour_map$초미세먼지 <=35] = 2 
+tsv2_merge_pm25_hour_map$standard[tsv2_merge_pm25_hour_map$초미세먼지 <=15] = 1 
+
+plotp <- ggplot()+
+    geom_polygon(data = seoul_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv2_merge_pm25_hour_map,colour = 'black' ,aes(x=long, y=lat,group = group, fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+    theme_bw()  +
+    transition_time(측정시간)+
+    enter_fade()+
+    labs(title = "2021년 서울시 시간별, 자치구별 초미세먼지 평균", subtitle = "측정시간: {frame_time}")
+
+ani_plot2 <- animate(plotp,duration = length(unique(tsv2_merge_pm25_hour_map$측정시간)), fps = 1)
+ani_plot2
+
+
+rm(ani_plot2)
+rm(plotp)
+rm(tsv2_merge_pm25_hour_map)
+
+gc()
+
+```
+
+
+
+# 자치구별 미세먼지 분포도 
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300, fig.width=9, fig.height=10}
+
+ggplot(tsv_3_gover_hour_2020, aes(x = 미세먼지, y = gover , fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
+  scale_fill_viridis_c(name = "미세먼지 농도", option = "Z") +
+  labs(title = paste0(year_2020,"~",year_2020_2," 미세먼지 분포도")) +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+  
+  
+ggplot(tsv_3_gover_hour_2020, aes(x = 초미세먼지, y = gover, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
+  scale_fill_viridis_c(name = "초미세먼지 농도", option = "Z") +
+  labs(title = paste0(year_2020,"~",year_2020_2," 초미세먼지 분포도")) +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+
+
+
+ggplot(tsv_3_gover_hour_2021, aes(x = 미세먼지, y = gover , fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
+  scale_fill_viridis_c(name = "미세먼지 농도", option = "Z") +
+  labs(title = paste0(year_2021,"~",year_2021_2," 미세먼지 분포도")) +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+  
+
+ggplot(tsv_3_gover_hour_2021, aes(x = 초미세먼지, y = gover, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
+  scale_fill_viridis_c(name = "초미세먼지 농도", option = "Z") +
+  labs(title = paste0(year_2021,"~",year_2021_2," 초미세먼지 분포도")) +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"))
+
+
+#paste0(year_2021,"~",year_2021_2,
+
+
+
+
+```
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+# 자치구 미세먼지 경보(시간별)  
+  
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300}
+
+#tsv_3_gover_hour_2020 %>% View()
+#tsv_3_gover_hour_2021 %>% View()
+### 라운드업 
+
+tsv_3_gover_hour_2021$미세먼지 <- round(tsv_3_gover_hour_2021$미세먼지)
+tsv_3_gover_hour_2021$초미세먼지 <- round(tsv_3_gover_hour_2021$초미세먼지)
+
+
+# 평균값 계산
+tsv_3_gover_hour_2020_pm10_mean <- mean(tsv_3_gover_hour_2020$미세먼지)
+tsv_3_gover_hour_2020_pm2_mean <- mean(tsv_3_gover_hour_2020$초미세먼지)
+
+tsv_3_gover_hour_2021_pm10_mean <- mean(tsv_3_gover_hour_2021$미세먼지)
+tsv_3_gover_hour_2021_pm2_mean <- mean(tsv_3_gover_hour_2021$초미세먼지)
+
+tsv_1_seoul_hour_pm10_mean <- round(tsv_3_gover_hour_2020_pm10_mean)
+tsv_1_seoul_hour_pm2_mean <- round(tsv_3_gover_hour_2020_pm2_mean)
+tsv_2_seoul_hour_pm10_mean <- round(tsv_3_gover_hour_2021_pm10_mean)
+tsv_2_seoul_hour_pm2_mean <- round(tsv_3_gover_hour_2021_pm2_mean)
+
+tsv_3_gover_hour_2020_nrow <-nrow(tsv_3_gover_hour_2020)
+tsv_3_gover_hour_2021_nrow <-nrow(tsv_3_gover_hour_2021)
+
+
+#####연속 평균 이상 시간재기(before)
+###미세먼지
+tsv_3_gover_hour_2020_conclusion_pm10 <- tsv_3_gover_hour_2020
+tsv_3_gover_hour_2020_conclusion_pm10$conclusion <- ifelse(tsv_3_gover_hour_2020_conclusion_pm10$미세먼지 >= 150, 1, 0)
+tsv_3_gover_hour_2020_conclusion_pm10$비교날짜 <- before_year
+tsv_3_gover_hour_2020_conclusion_pm10 <- tsv_3_gover_hour_2020_conclusion_pm10 %>% group_by(비교날짜,gover) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_gover_hour_2020_conclusion_pm10 <- tsv_3_gover_hour_2020_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_3_gover_hour_2020_conclusion_nrow_pm10 <- nrow(tsv_3_gover_hour_2020_conclusion_pm10)
+
+###초미세먼지
+tsv_3_gover_hour_2020_conclusion_pm2 <- tsv_3_gover_hour_2020
+tsv_3_gover_hour_2020_conclusion_pm2$conclusion <- ifelse(tsv_3_gover_hour_2020_conclusion_pm2$초미세먼지 >= 75, 1, 0)
+tsv_3_gover_hour_2020_conclusion_pm2$비교날짜 <- before_year
+tsv_3_gover_hour_2020_conclusion_pm2<- tsv_3_gover_hour_2020_conclusion_pm2 %>% group_by(비교날짜,gover) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_gover_hour_2020_conclusion_pm2 <- tsv_3_gover_hour_2020_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_3_gover_hour_2020_conclusion_nrow_pm2 <- nrow(tsv_3_gover_hour_2020_conclusion_pm2)
+
+#####연속 평균 이상 시간재기(after)
+###미세먼지
+tsv_3_gover_hour_2021_conclusion_pm10 <- tsv_3_gover_hour_2021
+tsv_3_gover_hour_2021_conclusion_pm10$conclusion <- ifelse(tsv_3_gover_hour_2021_conclusion_pm10$미세먼지 >= 150, 1, 0)
+tsv_3_gover_hour_2021_conclusion_pm10$비교날짜 <- after_year
+tsv_3_gover_hour_2021_conclusion_pm10<- tsv_3_gover_hour_2021_conclusion_pm10 %>% group_by(비교날짜,gover) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_gover_hour_2021_conclusion_pm10 <- tsv_3_gover_hour_2021_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_3_gover_hour_2021_conclusion_nrow_pm10 <- nrow(tsv_3_gover_hour_2021_conclusion_pm10)
+
+###초미세먼지
+tsv_3_gover_hour_2021_conclusion_pm2 <- tsv_3_gover_hour_2021
+tsv_3_gover_hour_2021_conclusion_pm2$conclusion <- ifelse(tsv_3_gover_hour_2021_conclusion_pm2$초미세먼지 >= 75, 1, 0)
+tsv_3_gover_hour_2021_conclusion_pm2$비교날짜 <- after_year
+tsv_3_gover_hour_2021_conclusion_pm2<- tsv_3_gover_hour_2021_conclusion_pm2 %>% group_by(비교날짜,gover) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_gover_hour_2021_conclusion_pm2 <- tsv_3_gover_hour_2021_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_3_gover_hour_2021_conclusion_nrow_pm2 <- nrow(tsv_3_gover_hour_2021_conclusion_pm2)
+
+
+#########  max시간 계산#########33
+#tsv_3_gover_hour_2021_conclusion_pm10_tsv<-tsv_3_gover_hour_2021_conclusion_pm10
+tsv_3_gover_hour_2020_conclusion_pm10 <- tsv_3_gover_hour_2020_conclusion_pm10 %>% group_by(gover) %>% slice(which.max(counter))
+tsv_3_gover_hour_2020_conclusion_pm2 <- tsv_3_gover_hour_2020_conclusion_pm2 %>% group_by(gover) %>% slice(which.max(counter))
+
+tsv_3_gover_hour_2021_conclusion_pm10 <- tsv_3_gover_hour_2021_conclusion_pm10 %>% group_by(gover) %>% slice(which.max(counter))
+tsv_3_gover_hour_2021_conclusion_pm2 <- tsv_3_gover_hour_2021_conclusion_pm2 %>% group_by(gover) %>% slice(which.max(counter))
+
+########### 표 다듬기 ############
+tsv_3_gover_hour_2020_conclusion_pm10$cal<- tsv_3_gover_hour_2020_conclusion_pm10$counter *60 *60 
+tsv_3_gover_hour_2020_conclusion_pm10$test <-tsv_3_gover_hour_2020_conclusion_pm10$측정시간 - tsv_3_gover_hour_2020_conclusion_pm10$cal
+
+tsv_3_gover_hour_2020_conclusion_pm2$cal<- tsv_3_gover_hour_2020_conclusion_pm2$counter *60 *60 
+tsv_3_gover_hour_2020_conclusion_pm2$test <-tsv_3_gover_hour_2020_conclusion_pm2$측정시간 - tsv_3_gover_hour_2020_conclusion_pm2$cal
+
+
+tsv_3_gover_hour_2021_conclusion_pm10$cal<- tsv_3_gover_hour_2021_conclusion_pm10$counter *60 *60 
+tsv_3_gover_hour_2021_conclusion_pm10$test <-tsv_3_gover_hour_2021_conclusion_pm10$측정시간 - tsv_3_gover_hour_2021_conclusion_pm10$cal
+
+tsv_3_gover_hour_2021_conclusion_pm2$cal<- tsv_3_gover_hour_2021_conclusion_pm2$counter *60 *60 
+tsv_3_gover_hour_2021_conclusion_pm2$test <-tsv_3_gover_hour_2021_conclusion_pm2$측정시간 - tsv_3_gover_hour_2021_conclusion_pm2$cal
+
+
+tsv_3_gover_hour_2020_conclusion_pm10 <- tsv_3_gover_hour_2020_conclusion_pm10 %>% dplyr::select(비교날짜, test, 측정시간, gover, counter, 미세먼지)
+tsv_3_gover_hour_2020_conclusion_pm2 <- tsv_3_gover_hour_2020_conclusion_pm2 %>% dplyr::select(비교날짜, test, 측정시간, gover, counter, 미세먼지)
+
+tsv_3_gover_hour_2021_conclusion_pm10 <- tsv_3_gover_hour_2021_conclusion_pm10 %>% dplyr::select(비교날짜, test, 측정시간, gover, counter, 미세먼지)
+tsv_3_gover_hour_2021_conclusion_pm2 <- tsv_3_gover_hour_2021_conclusion_pm2 %>% dplyr::select(비교날짜, test, 측정시간, gover, counter, 미세먼지)
+
+names(tsv_3_gover_hour_2020_conclusion_pm10)[1] <- '기간'
+names(tsv_3_gover_hour_2020_conclusion_pm10)[2] <- '미세먼지 주의보 시작시간'
+names(tsv_3_gover_hour_2020_conclusion_pm10)[3] <- '미세먼지 주의보 종료시간'
+names(tsv_3_gover_hour_2020_conclusion_pm10)[4] <- 'gover'
+names(tsv_3_gover_hour_2020_conclusion_pm10)[5] <- '미세먼지 주의보 연속발생시간'
+names(tsv_3_gover_hour_2020_conclusion_pm10)[6] <- '미세먼지 농도'
+
+names(tsv_3_gover_hour_2020_conclusion_pm2)[1] <- '기간'
+names(tsv_3_gover_hour_2020_conclusion_pm2)[2] <- '초미세먼지 주의보 시작시간'
+names(tsv_3_gover_hour_2020_conclusion_pm2)[3] <- '초미세먼지 주의보 종료시간'
+names(tsv_3_gover_hour_2020_conclusion_pm2)[4] <- 'gover'
+names(tsv_3_gover_hour_2020_conclusion_pm2)[5] <- '초미세먼지 주의보 연속발생시간'
+names(tsv_3_gover_hour_2020_conclusion_pm2)[6] <- '초미세먼지 농도'
+
+names(tsv_3_gover_hour_2021_conclusion_pm10)[1] <- '기간'
+names(tsv_3_gover_hour_2021_conclusion_pm10)[2] <- '미세먼지 주의보 시작시간'
+names(tsv_3_gover_hour_2021_conclusion_pm10)[3] <- '미세먼지 주의보 종료시간'
+names(tsv_3_gover_hour_2021_conclusion_pm10)[4] <- 'gover'
+names(tsv_3_gover_hour_2021_conclusion_pm10)[5] <- '미세먼지 주의보 연속발생시간'
+names(tsv_3_gover_hour_2021_conclusion_pm10)[6] <- '미세먼지 농도'
+
+names(tsv_3_gover_hour_2021_conclusion_pm2)[1] <- '기간'
+names(tsv_3_gover_hour_2021_conclusion_pm2)[2] <- '초미세먼지 주의보 시작시간'
+names(tsv_3_gover_hour_2021_conclusion_pm2)[3] <- '초미세먼지 주의보 종료시간'
+names(tsv_3_gover_hour_2021_conclusion_pm2)[4] <- 'gover'
+names(tsv_3_gover_hour_2021_conclusion_pm2)[5] <- '초미세먼지 주의보 연속발생시간'
+names(tsv_3_gover_hour_2021_conclusion_pm2)[6] <- '초미세먼지 농도'
+
+
+library(kableExtra)
+
+#2020년 미세 
+formattable(tsv_3_gover_hour_2020_conclusion_pm10, 
+            list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+                  ~ color_tile("lightblue", "lightpink")))
+#2020년 초미세 
+formattable(tsv_3_gover_hour_2020_conclusion_pm10, 
+            list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+                  ~ color_tile("lightblue", "lightpink")))
+
+
+#2021년 미세 
+formattable(tsv_3_gover_hour_2021_conclusion_pm10, 
+            list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+                  ~ color_tile("lightblue", "lightpink")))
+
+#2021년 초미세 
+formattable(tsv_3_gover_hour_2021_conclusion_pm2, 
+            list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+                  ~ color_tile("lightblue", "lightpink")))
+
+
+
+
+#2020
+########################################################################################################
+#미세먼지 가장오래 지속된 자치구 시간
+max_tsv_3_gover_hour_2020_conclusion_pm10 <- max(tsv_3_gover_hour_2020_conclusion_pm10$`미세먼지 주의보 연속발생시간`)
+max_gu_tsv_3_gover_hour_2020_conclusion_pm10 <- tsv_3_gover_hour_2020_conclusion_pm10 %>% filter(`미세먼지 주의보 연속발생시간` ==max_tsv_3_gover_hour_2020_conclusion_pm10)
+
+#미세먼지 가장짧게 지속된 자치구 시간
+min_tsv_3_gover_hour_2020_conclusion_pm10 <- min(tsv_3_gover_hour_2020_conclusion_pm10$`미세먼지 주의보 연속발생시간`)
+min_gu_tsv_3_gover_hour_2020_conclusion_pm10 <- tsv_3_gover_hour_2020_conclusion_pm10 %>% filter(`미세먼지 주의보 연속발생시간` ==min_tsv_3_gover_hour_2020_conclusion_pm10)
+########################################################################################################
+
+
+########################################################################################################
+#초미세먼지 가장오래 지속된 자치구 
+max_tsv_3_gover_hour_2020_conclusion_pm2 <- max(tsv_3_gover_hour_2020_conclusion_pm2$`초미세먼지 주의보 연속발생시간`)
+max_gu_tsv_3_gover_hour_2020_conclusion_pm2 <- tsv_3_gover_hour_2020_conclusion_pm2 %>% filter(`초미세먼지 주의보 연속발생시간` ==max_tsv_3_gover_hour_2020_conclusion_pm2)
+
+#초미세먼지 가장짧게 지속된 자치구 시간
+min_tsv_3_gover_hour_2020_conclusion_pm2 <- min(tsv_3_gover_hour_2020_conclusion_pm2$`초미세먼지 주의보 연속발생시간`)
+min_gu_tsv_3_gover_hour_2020_conclusion_pm2 <- tsv_3_gover_hour_2020_conclusion_pm2 %>% filter(`초미세먼지 주의보 연속발생시간` ==min_tsv_3_gover_hour_2020_conclusion_pm2)
+########################################################################################################
+
+
+
+#2021
+########################################################################################################
+#미세먼지 가장오래 지속된 자치구 시간
+max_tsv_3_gover_hour_2021_conclusion_pm10 <- max(tsv_3_gover_hour_2021_conclusion_pm10$`미세먼지 주의보 연속발생시간`)
+max_gu_tsv_3_gover_hour_2021_conclusion_pm10 <- tsv_3_gover_hour_2021_conclusion_pm10 %>% filter(`미세먼지 주의보 연속발생시간` ==max_tsv_3_gover_hour_2021_conclusion_pm10)
+
+#미세먼지 가장짧게 지속된 자치구 시간
+min_tsv_3_gover_hour_2021_conclusion_pm10 <- min(tsv_3_gover_hour_2021_conclusion_pm10$`미세먼지 주의보 연속발생시간`)
+min_gu_tsv_3_gover_hour_2021_conclusion_pm10 <- tsv_3_gover_hour_2021_conclusion_pm10 %>% filter(`미세먼지 주의보 연속발생시간` ==min_tsv_3_gover_hour_2021_conclusion_pm10)
+########################################################################################################
+
+
+########################################################################################################
+#초미세먼지 가장오래 지속된 자치구 
+max_tsv_3_gover_hour_2021_conclusion_pm2 <- max(tsv_3_gover_hour_2021_conclusion_pm2$`초미세먼지 주의보 연속발생시간`)
+max_gu_tsv_3_gover_hour_2021_conclusion_pm2 <- tsv_3_gover_hour_2021_conclusion_pm2 %>% filter(`초미세먼지 주의보 연속발생시간` ==max_tsv_3_gover_hour_2021_conclusion_pm2)
+
+#초미세먼지 가장짧게 지속된 자치구 시간
+min_tsv_3_gover_hour_2021_conclusion_pm2 <- min(tsv_3_gover_hour_2021_conclusion_pm2$`초미세먼지 주의보 연속발생시간`)
+min_gu_tsv_3_gover_hour_2021_conclusion_pm2 <- tsv_3_gover_hour_2021_conclusion_pm2 %>% filter(`초미세먼지 주의보 연속발생시간` ==min_tsv_3_gover_hour_2021_conclusion_pm2)
+########################################################################################################
+
+
+```
+
+
+`r year_2020` ~ `r year_2020_2`중   
+미세먼지 경보가 가장 오래 지속된 자치구(시간)은 `r paste0('**',max_tsv_3_gover_hour_2020_conclusion_pm10,'**')`시간 이며  
+미세먼지 경보가 가장 오래 지속된 자치구는 `r paste0('**',max_gu_tsv_3_gover_hour_2020_conclusion_pm10$gover,'**')` 입니다.  
+  
+미세먼지 경보가 가장 짧게 지속된 시간은 `r paste0('**',min_tsv_3_gover_hour_2020_conclusion_pm10,'**')`시간 이며  
+미세먼지 경보가 가장 짧게 지속된 자치구는 `r paste0('**',min_gu_tsv_3_gover_hour_2020_conclusion_pm10$gover,'**')` 입니다.  
+  
+  
+초미세먼지 경보가 가장 오래 지속된 자치구(시간)은 `r paste0('**',max_tsv_3_gover_hour_2020_conclusion_pm2,'**')`시간 이며  
+초미세먼지 경보가 가장 오래 지속된 자치구는 `r paste0('**',max_gu_tsv_3_gover_hour_2020_conclusion_pm2$gover,'**')` 입니다.  
+  
+초미세먼지 경보가 가장 짧게 지속된 시간은 `r paste0('**',min_tsv_3_gover_hour_2020_conclusion_pm2,'**')`시간 이며  
+초미세먼지 경보가 가장 짧게 지속된 자치구는 `r paste0('**',min_gu_tsv_3_gover_hour_2020_conclusion_pm2$gover,'**')` 입니다.  
+  
+  
+  
+
+`r year_2021` ~ `r year_2021_2`중  
+미세먼지 경보가 가장 오래 지속된 자치구(시간)은 `r paste0('**',max_tsv_3_gover_hour_2021_conclusion_pm10,'**')`시간 이며  
+미세먼지 경보가 가장 오래 지속된 자치구는 `r paste0('**',max_gu_tsv_3_gover_hour_2021_conclusion_pm10$gover,'**')` 입니다.  
+  
+미세먼지 경보가 가장 짧게 지속된 시간은 `r paste0('**',min_tsv_3_gover_hour_2021_conclusion_pm10,'**')`시간 이며  
+미세먼지 경보가 가장 짧게 지속된 자치구는 `r paste0('**',min_gu_tsv_3_gover_hour_2021_conclusion_pm10$gover,'**')` 입니다.  
+  
+  
+초미세먼지 경보가 가장 오래 지속된 자치구(시간)은 `r paste0('**',max_tsv_3_gover_hour_2021_conclusion_pm2,'**')`시간 이며  
+초미세먼지 경보가 가장 오래 지속된 자치구는 `r paste0('**',max_gu_tsv_3_gover_hour_2021_conclusion_pm2$gover,'**')` 입니다.  
+  
+초미세먼지 경보가 가장 짧게 지속된 시간은 `r paste0('**',min_tsv_3_gover_hour_2021_conclusion_pm2,'**')`시간 이며  
+초미세먼지 경보가 가장 짧게 지속된 자치구는 `r paste0('**',min_gu_tsv_3_gover_hour_2021_conclusion_pm2$gover,'**')` 입니다.  
+
+
+# 동 일별 미세먼지 막대 그래프
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=9, fig.height=400}
+
+
+#이전 청크 메모리 gc
+rm(min_tsv_3_gover_hour_2021_conclusion_pm2)
+rm(min_gu_tsv_3_gover_hour_2021_conclusion_pm10)
+
+rm(max_tsv_3_gover_hour_2021_conclusion_pm10)
+rm(max_tsv_3_gover_hour_2021_conclusion_pm2)
+
+rm(min_tsv_3_gover_hour_2020_conclusion_pm2)
+rm(min_gu_tsv_3_gover_hour_2020_conclusion_pm10)
+
+rm(max_tsv_3_gover_hour_2020_conclusion_pm10)
+rm(max_tsv_3_gover_hour_2020_conclusion_pm2)
+
+
+
+
+tsv_1_gover <- tsv_1 %>% group_by(date,dong,EMD_CD) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+tsv_2_gover <- tsv_2 %>% group_by(date,dong,EMD_CD) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+
+tsv_1_gover <- melt(tsv_1_gover, id.vars=c('date','dong','EMD_CD'))
+tsv_2_gover <- melt(tsv_2_gover, id.vars=c('date','dong','EMD_CD'))
+tsv_3_gover<-rbind(tsv_1_gover, tsv_2_gover)
+
+tsv_3_gover_2020 <- tsv_3_gover %>% filter(date >= year_2020 & date <=year_2020_2)
+tsv_3_gover_2021 <- tsv_3_gover %>% filter(date >= year_2021 & date <=year_2021_2)
+
+
+p1<-ggplot(tsv_3_gover_2020, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity", position="dodge",show.legend=TRUE, colour="black") +
+  #scale_color_gradient2(low = "green", mid = "yellow", high = "red", midpoint = max(tsv_2_seoul$value)/2) +
+  #geom_text(aes(label = value), vjust = -0.5, colour = "black") +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4, position=position_dodge(width=0.9), vjust=-0.25) +
+  
+  ylab('미세먼지&초미세먼지 농도') + 
+  #ggtitle(paste0(year_2020,"~",year_2020_2, " 미세먼지 농도"))  + ylab("미세먼지 농도") +
+  
+  labs(title=paste0(year_2020,"~",year_2020_2, " 미세먼지 농도")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  #geom_hline(yintercept=mean(tsv_2_seoul$미세먼지), color="grey",linetype='dashed') +
+  theme_bw() + 
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  #facet_grid(gover ~ scales = "free_x") 
+  facet_wrap(~dong, ncol = 1,scales = "free_x")
+
+
+
+
+p2<-ggplot(tsv_3_gover_2021, aes(x=date, y=value, fill=variable)) +
+  geom_bar(stat="identity", position="dodge",show.legend=TRUE, colour="black") +
+  #scale_color_gradient2(low = "green", mid = "yellow", high = "red", midpoint = max(tsv_2_seoul$value)/2) +
+  #geom_text(aes(label = value), vjust = -0.5, colour = "black") +
+  geom_text(aes(y=value, label = format(round(value, 0), nsmall=0)), size=4 ,position=position_dodge(width=0.9), vjust=-0.25) +
+
+
+  labs(title=paste0(year_2021,"~",year_2021_2, " 미세먼지 농도")) +
+  scale_x_date(date_breaks = "day", date_labels =  "%y-%m-%d") +
+  #geom_hline(yintercept=mean(tsv_2_seoul$미세먼지), color="grey",linetype='dashed') +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"),legend.position = "top") +
+  #facet_grid(gover ~ scales = "free_x")
+  facet_wrap(~dong, ncol = 1,scales = "free_x")
+
+
+p<-ggarrange(p1, p2,    ncol = 2)
+p
+
+rm(p)
+rm(p1)
+rm(p2)
+
+
+#자치구 일별(옛날)
+tsv_3_gover_2020_mean_pm10 <- tsv_3_gover_2020 %>% filter(variable =="미세먼지") %>% group_by(dong) %>% summarise(미세먼지 = mean(value))
+tsv_3_gover_2020_mean_pm2 <- tsv_3_gover_2020 %>% filter(variable =="초미세먼지") %>% group_by(dong) %>% summarise(초미세먼지 = mean(value))
+
+tsv_3_gover_2020_mean_pm10$초미세먼지 <-tsv_3_gover_2020_mean_pm2$초미세먼지
+tsv_3_gover_2020_mean<- tsv_3_gover_2020_mean_pm10
+
+
+#자치구 일별(최신)
+tsv_3_gover_2021_mean_pm10 <- tsv_3_gover_2021 %>% filter(variable =="미세먼지") %>% group_by(dong) %>% summarise(미세먼지 = mean(value))
+tsv_3_gover_2021_mean_pm2 <- tsv_3_gover_2021 %>% filter(variable =="초미세먼지") %>% group_by(dong) %>% summarise(초미세먼지 = mean(value))
+
+tsv_3_gover_2021_mean_pm10$초미세먼지 <-tsv_3_gover_2021_mean_pm2$초미세먼지
+tsv_3_gover_2021_mean<- tsv_3_gover_2021_mean_pm10
+
+gc()
+```
+
+
+# 행정동별 구분 지도 
+
+#2020년 행정동별 미세먼지 평균 지도
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=200, fig.width=10, fig.height=200}
+#동별 지도 그리기 시작
+
+emd_map <- shapefile("C:/Users/zpzg/Downloads/사본(1) - level/level/basic_data/행정동/TL_SCCO_EMD.shp")
+
+emd_map <- spTransform(emd_map, CRSobj = CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'))
+new_emd_map <- fortify(emd_map , region = 'EMD_CD')
+new_emd_map$gover <- str_sub(new_emd_map$id,1,5)
+
+rm(emd_map)
+
+new_emd_map$gover <- as.numeric(new_emd_map$gover)
+
+#시군구 코드 11740 이하의 값이 서울시에 포함된 자치구임
+seoul_emd_map <- new_emd_map[new_emd_map$gover<=11740,]
+seoul_emd_map$id <- as.numeric(seoul_emd_map$id)
+
+rm(new_emd_map)
+
+#emd_name <- seoul_emd_map %>% group_by(id) %>% summarise(lat = mean(`lat`, ra.rm = TRUE),long = mean(`long`,na.rm = TRUE))
+
+#자치구 코드파일 불러오기
+emd_code <- read.csv('C:/Users/zpzg/Downloads/사본(1) - level/level/basic_data/법정동_20210705.csv')
+
+#텍스트용 구-읍면동 이름 테이블
+gu_emd_nm <- read.csv('C:/Users/zpzg/Downloads/사본(1) - level/level/basic_data/gu_emd_nm.csv')
+gu_emd_nm$id <- as.character(gu_emd_nm$id)
+gu_emd_nm$id <- str_sub(gu_emd_nm$id,1,8)
+gu_emd_nm$id <- as.numeric(gu_emd_nm$id)
+
+gover_cd_tmp <- gover_code
+names(gover_cd_tmp)[1] <- c('gu')
+names(gover_cd_tmp)[2] <- c('gover')
+
+seoul_emd_map <- inner_join(seoul_emd_map,gover_cd_tmp,by = 'gover')
+
+emd_code$id <- as.character(emd_code$id)
+emd_code$id <- str_sub(emd_code$id,1,8)
+emd_code$id <- as.numeric(emd_code$id)
+
+#emd_name <- inner_join(emd_name,emd_code,by='id')
+#emd_name <- inner_join(emd_name,gu_emd_nm,by = 'id')
+#names(emd_name)[7] = c('gu.x')
+
+
+emd_name <- read.csv("C:/Users/zpzg/Downloads/사본(1) - level/level/text.csv")
+seoul_emd_map <- inner_join(seoul_emd_map,emd_code, by = 'id')
+
+
+#2020년 행정동별 미세먼지 지도
+tsv1_emd_pm10_seoul_map <- tsv_1 %>% group_by(EMD_CD) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv1_emd_pm10_seoul_map)[1] <- c("id")
+tsv1_emd_pm10_seoul_map$id <- as.numeric(tsv1_emd_pm10_seoul_map$id)
+
+tsv1_emd_merge_pm10_seoul_map <- merge(seoul_emd_map,tsv1_emd_pm10_seoul_map,by='id')
+tsv1_emd_merge_pm10_seoul_map <- inner_join(seoul_emd_map,tsv1_emd_pm10_seoul_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv1_emd_pm10_seoul_map,by = 'id')
+emd_name_value$미세먼지 <- round(emd_name_value$미세먼지,1)
+
+rm(tsv1_emd_pm10_seoul_map)
+
+tsv1_emd_merge_pm10_seoul_map$standard[tsv1_emd_merge_pm10_seoul_map$미세먼지 >150] = 4 
+tsv1_emd_merge_pm10_seoul_map$standard[tsv1_emd_merge_pm10_seoul_map$미세먼지 <=150] = 3 
+tsv1_emd_merge_pm10_seoul_map$standard[tsv1_emd_merge_pm10_seoul_map$미세먼지 <=80] = 2 
+tsv1_emd_merge_pm10_seoul_map$standard[tsv1_emd_merge_pm10_seoul_map$미세먼지 <=30] = 1 
+
+
+plotp <- ggplot()+
+  geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+  geom_polygon(data = tsv1_emd_merge_pm10_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+ scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+  theme_bw() + 
+  geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,미세먼지,sep = '\n')),size = 3, vjust = -0.25, fontface = 'bold')+
+  facet_wrap(~gu,scales = 'free',ncol = 1)+
+  labs(title = "2020년 서울시 시간별, 자치구별 미세먼지 평균")
+
+plotp
+rm(plotp)
+rm(tsv1_emd_merge_pm10_seoul_map)
+gc()
+
+
+
+
+
+
+
+
+
+```
+
+#2021년 행정동별 미세먼지 지도
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=10, fig.height=200}
+
+#2021년 행정동별 미세먼지 지도
+tsv2_emd_pm10_seoul_map <- tsv_2 %>% group_by(EMD_CD) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv2_emd_pm10_seoul_map)[1] <- c("id")
+tsv2_emd_pm10_seoul_map$id <- as.numeric(tsv2_emd_pm10_seoul_map$id)
+
+tsv2_emd_merge_pm10_seoul_map <- merge(seoul_emd_map,tsv2_emd_pm10_seoul_map,by='id')
+tsv2_emd_merge_pm10_seoul_map <- inner_join(seoul_emd_map,tsv2_emd_pm10_seoul_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv2_emd_pm10_seoul_map,by = 'id')
+emd_name_value$미세먼지 <- round(emd_name_value$미세먼지,1)
+
+rm(tsv2_emd_pm10_seoul_map)
+
+tsv2_emd_merge_pm10_seoul_map$standard[tsv2_emd_merge_pm10_seoul_map$미세먼지 >150] = 4 
+tsv2_emd_merge_pm10_seoul_map$standard[tsv2_emd_merge_pm10_seoul_map$미세먼지 <=150] = 3 
+tsv2_emd_merge_pm10_seoul_map$standard[tsv2_emd_merge_pm10_seoul_map$미세먼지 <=80] = 2 
+tsv2_emd_merge_pm10_seoul_map$standard[tsv2_emd_merge_pm10_seoul_map$미세먼지 <=30] = 1 
+
+
+
+plotp <- ggplot()+
+  geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+  geom_polygon(data = tsv2_emd_merge_pm10_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+ scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+  theme_bw() + 
+  geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,미세먼지,sep = '\n')),size = 3, vjust = -0.25, fontface = 'bold')+
+  facet_wrap(~gu,scales = 'free',ncol = 1)+
+  labs(title = "2021년 서울시 시간별, 자치구별 미세먼지 평균")
+
+plotp
+
+rm(plotp)
+rm(tsv2_emd_merge_pm10_seoul_map)
+gc()
+
+
+
+
+```
+
+#2020년 행정동별 초 미세먼지 
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=10, fig.height=200}
+
+#2020년 행정동별 초미세먼지 지도
+tsv1_emd_pm25_seoul_map <- tsv_1 %>% group_by(EMD_CD) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv1_emd_pm25_seoul_map)[1] <- c("id")
+tsv1_emd_pm25_seoul_map$id <- as.numeric(tsv1_emd_pm25_seoul_map$id)
+
+tsv1_emd_merge_pm25_seoul_map <- merge(seoul_emd_map,tsv1_emd_pm25_seoul_map,by='id')
+tsv1_emd_merge_pm25_seoul_map <- inner_join(seoul_emd_map,tsv1_emd_pm25_seoul_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv1_emd_pm25_seoul_map,by = 'id')
+emd_name_value$초미세먼지 <- round(emd_name_value$초미세먼지,1)
+
+rm(tsv1_emd_pm25_seoul_map)
+
+tsv1_emd_merge_pm25_seoul_map$standard[tsv1_emd_merge_pm25_seoul_map$초미세먼지 >75] = 4 
+tsv1_emd_merge_pm25_seoul_map$standard[tsv1_emd_merge_pm25_seoul_map$초미세먼지 <=75] = 3 
+tsv1_emd_merge_pm25_seoul_map$standard[tsv1_emd_merge_pm25_seoul_map$초미세먼지 <=35] = 2 
+tsv1_emd_merge_pm25_seoul_map$standard[tsv1_emd_merge_pm25_seoul_map$초미세먼지 <=15] = 1 
+
+
+plotp <- ggplot()+
+  geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+  geom_polygon(data = tsv1_emd_merge_pm25_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+ scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+  theme_bw() + 
+  geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,초미세먼지,sep = '\n')),size = 3, vjust = -0.25, fontface = 'bold')+
+  facet_wrap(~gu,scales = 'free',ncol = 1)+
+  labs(title = "2020년 서울시 행정동별 초미세먼지 평균")
+
+plotp
+
+rm(plotp)
+rm(tsv1_emd_merge_pm25_seoul_map)
+gc()
+
+
+
+
+
+
+
+```
+
+
+
+
+#2021년 행정동별 초미세먼지 
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=10, fig.height=200}
+
+#2021년 행정동별 초미세먼지 지도
+tsv2_emd_pm25_seoul_map <- tsv_2 %>% group_by(EMD_CD) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv2_emd_pm25_seoul_map)[1] <- c("id")
+tsv2_emd_pm25_seoul_map$id <- as.numeric(tsv2_emd_pm25_seoul_map$id)
+
+tsv2_emd_merge_pm25_seoul_map <- merge(seoul_emd_map,tsv2_emd_pm25_seoul_map,by='id')
+tsv2_emd_merge_pm25_seoul_map <- inner_join(seoul_emd_map,tsv2_emd_pm25_seoul_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv2_emd_pm25_seoul_map,by = 'id')
+emd_name_value$초미세먼지 <- round(emd_name_value$초미세먼지,2)
+
+rm(tsv2_emd_pm25_seoul_map)
+
+tsv2_emd_merge_pm25_seoul_map$standard[tsv2_emd_merge_pm25_seoul_map$초미세먼지 >75] = 4 
+tsv2_emd_merge_pm25_seoul_map$standard[tsv2_emd_merge_pm25_seoul_map$초미세먼지 <=75] = 3 
+tsv2_emd_merge_pm25_seoul_map$standard[tsv2_emd_merge_pm25_seoul_map$초미세먼지 <=35] = 2 
+tsv2_emd_merge_pm25_seoul_map$standard[tsv2_emd_merge_pm25_seoul_map$초미세먼지 <=15] = 1 
+
+
+
+plotp <- ggplot()+
+  geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+  geom_polygon(data = tsv2_emd_merge_pm25_seoul_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+ scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~15)","보통(16~35)","나쁨(36~75)","매우나쁨(76~)"))+
+  theme_bw() + 
+  geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,초미세먼지,sep = '\n')),size = 3, vjust = -0.25, fontface = 'bold')+
+  facet_wrap(~gu,scales = 'free',ncol = 1)+
+  labs(title = "2021년 서울시 행정동별 초미세먼지 평균")
+
+plotp
+
+rm(plotp)
+rm(tsv2_emd_merge_pm25_seoul_map)
+gc()
+
+
+```
+
+# 동 시간별
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=10, fig.height=800}
+tsv_1_dong_hour <- tsv_1 %>% group_by(측정시간,dong,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+tsv_2_dong_hour <- tsv_2 %>% group_by(측정시간,dong,date) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ),초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE))
+
+# tsv_1_dong_hour <- melt(tsv_1_dong_hour, id.vars=c('측정시간','dong','date'))
+# tsv_2_dong_hour <- melt(tsv_2_dong_hour, id.vars=c('측정시간','dong','date'))
+# tsv_3_dong_hour <-rbind(tsv_1_dong_hour, tsv_2_dong_hour)
+
+tsv_3_dong_hour_2020 <- tsv_1_dong_hour %>% filter(date >= year_2020 & date <=year_2020_2)
+tsv_3_dong_hour_2021 <- tsv_2_dong_hour %>% filter(date >= year_2021 & date <=year_2021_2)
+
+p1<-ggplot(tsv_3_dong_hour_2020, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  facet_wrap(~dong, ncol = 1, scale = "free") + theme(legend.position = "right") +
+   
+  
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "6 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0)) +
+  
+  
+  ggtitle(paste0(year_2020,"~",year_2020_2, " 미세먼지 농도")) + xlab("시간") + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"), axis.text.x = element_text(angle=90, hjust=1))
+  
+
+
+p2<-ggplot(tsv_3_dong_hour_2021, aes(x=측정시간)) + 
+  
+  geom_line(aes(y = 미세먼지), color = "steelblue", linetype="solid") + 
+  geom_point(aes(y = 미세먼지), colour = "steelblue", size = 0.7) +
+  
+  geom_line(aes(y = 초미세먼지), color = "red", linetype="solid") +
+  geom_point(aes(y = 초미세먼지), colour = "red", size = 0.7) + 
+  
+  facet_wrap(~dong, ncol = 1, scale = "free") + theme(legend.position = "right") +
+  
+  scale_x_datetime( date_breaks= "6 hour", date_minor_breaks= "6 hours",
+                    labels = date_format("%y-%m-%d %H:%M", tz= "UTC"), 
+                    expand = c(0,0)) +
+  
+  ggtitle(paste0(year_2021,"~",year_2021_2, " 미세먼지 농도")) + xlab("시간") + ylab("미세먼지 농도") +
+  theme_bw() +
+  theme(text=element_text(family="NanumGothic"), axis.text.x = element_text(angle=90, hjust=1))
+
+p<-ggarrange(p1, p2,    ncol = 2)
+p
+```
+
+# 행정동 일별 미세먼지 평균 지도
+
+#2020년 행정동별 미세먼지 평균 지도 (일별)
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=8, fig.height=800}
+
+#2020년 행정동별 미세먼지 지도(일별)
+tsv1_emd_pm10_day_map <- tsv_1 %>% group_by(EMD_CD,date,gover) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv1_emd_pm10_day_map)[1] <- c("id")
+tsv1_emd_pm10_day_map$id <- as.numeric(tsv1_emd_pm10_day_map$id)
+
+tsv1_emd_merge_pm10_day_map <- merge(seoul_emd_map,tsv1_emd_pm10_day_map,by='id')
+tsv1_emd_merge_pm10_day_map <- inner_join(seoul_emd_map,tsv1_emd_pm10_day_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv1_emd_pm10_day_map,by = 'id')
+emd_name_value$미세먼지 <- round(emd_name_value$미세먼지,0)
+
+rm(tsv1_emd_pm10_day_map)
+
+tsv1_emd_merge_pm10_day_map$standard[tsv1_emd_merge_pm10_day_map$미세먼지 >150] = 4 
+tsv1_emd_merge_pm10_day_map$standard[tsv1_emd_merge_pm10_day_map$미세먼지 <=150] = 3 
+tsv1_emd_merge_pm10_day_map$standard[tsv1_emd_merge_pm10_day_map$미세먼지 <=80] = 2 
+tsv1_emd_merge_pm10_day_map$standard[tsv1_emd_merge_pm10_day_map$미세먼지 <=30] = 1 
+
+
+
+#tsv1_emd_merge_pm10_seoul_map <- inner_join(tsv1_emd_merge_pm10_seoul_map,gover_cd_tmp,by='gover')
+#tsv1_emd_merge_pm10_seoul_map$gu <- as.factor(tsv1_emd_merge_pm10_seoul_map$gu)
+
+
+
+plotp <- ggplot()+
+    geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv1_emd_merge_pm10_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+    theme_bw() + 
+    geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,미세먼지,sep = '\n')),size = 3, vjust = -0.25, check_overlap = TRUE,fontface = 'bold')+
+    facet_wrap(~gu+date,scales = 'free',ncol = 1)+
+    labs(title = "2020년 서울시 행정동 일별 미세먼지 평균")
+
+plotp
+rm(plotp)
+rm(tsv1_emd_merge_pm10_day_map)
+gc()
+   
+
+
+
+```
+
+
+#2021년 행정동별 미세먼지 평균 지도 (일별)
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=8, fig.height=800}
+
+#2021년 행정동별 미세먼지 지도(일별)
+tsv2_emd_pm10_day_map <- tsv_2 %>% group_by(EMD_CD,date,gover) %>% summarise(미세먼지 =mean(`미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv2_emd_pm10_day_map)[1] <- c("id")
+tsv2_emd_pm10_day_map$id <- as.numeric(tsv2_emd_pm10_day_map$id)
+
+tsv2_emd_merge_pm10_day_map <- merge(seoul_emd_map,tsv2_emd_pm10_day_map,by='id')
+tsv2_emd_merge_pm10_day_map <- inner_join(seoul_emd_map,tsv2_emd_pm10_day_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv2_emd_pm10_day_map,by = 'id')
+emd_name_value$미세먼지 <- round(emd_name_value$미세먼지,0)
+
+rm(tsv2_emd_pm10_day_map)
+
+tsv2_emd_merge_pm10_day_map$standard[tsv2_emd_merge_pm10_day_map$미세먼지 >150] = 4 
+tsv2_emd_merge_pm10_day_map$standard[tsv2_emd_merge_pm10_day_map$미세먼지 <=150] = 3 
+tsv2_emd_merge_pm10_day_map$standard[tsv2_emd_merge_pm10_day_map$미세먼지 <=80] = 2 
+tsv2_emd_merge_pm10_day_map$standard[tsv2_emd_merge_pm10_day_map$미세먼지 <=30] = 1 
+
+
+
+#tsv1_emd_merge_pm10_seoul_map <- inner_join(tsv1_emd_merge_pm10_seoul_map,gover_cd_tmp,by='gover')
+#tsv1_emd_merge_pm10_seoul_map$gu <- as.factor(tsv1_emd_merge_pm10_seoul_map$gu)
+
+
+
+plotp <-  ggplot()+
+    geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv2_emd_merge_pm10_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+    theme_bw() + 
+    geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,미세먼지,sep = '\n')),size = 3, vjust = -0.25, check_overlap = TRUE,fontface = 'bold')+
+    facet_wrap(~gu+date,scales = 'free',ncol = 1)+
+    labs(title = "2021년 서울시 행정동 일별 미세먼지 평균")
+
+plotp
+rm(plotp)
+rm(tsv2_emd_merge_pm10_day_map)
+gc()
+
+
+```
+
+
+#2020년 행정동별 초미세먼지 평균 지도 (일별)
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=8, fig.height=800}
+
+#2020년 행정동별 초미세먼지 지도(일별)
+tsv1_emd_pm25_day_map <- tsv_1 %>% group_by(EMD_CD,date,gover) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv1_emd_pm25_day_map)[1] <- c("id")
+tsv1_emd_pm25_day_map$id <- as.numeric(tsv1_emd_pm25_day_map$id)
+
+tsv1_emd_merge_pm25_day_map <- merge(seoul_emd_map,tsv1_emd_pm25_day_map,by='id')
+tsv1_emd_merge_pm25_day_map <- inner_join(seoul_emd_map,tsv1_emd_pm25_day_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv1_emd_pm25_day_map,by = 'id')
+emd_name_value$초미세먼지 <- round(emd_name_value$초미세먼지,0)
+
+rm(tsv1_emd_pm25_day_map)
+
+tsv1_emd_merge_pm25_day_map$standard[tsv1_emd_merge_pm25_day_map$초미세먼지 >75] = 4 
+tsv1_emd_merge_pm25_day_map$standard[tsv1_emd_merge_pm25_day_map$초미세먼지 <=75] = 3 
+tsv1_emd_merge_pm25_day_map$standard[tsv1_emd_merge_pm25_day_map$초미세먼지 <=35] = 2 
+tsv1_emd_merge_pm25_day_map$standard[tsv1_emd_merge_pm25_day_map$초미세먼지 <=15] = 1 
+
+
+
+#tsv1_emd_merge_pm10_seoul_map <- inner_join(tsv1_emd_merge_pm10_seoul_map,gover_cd_tmp,by='gover')
+#tsv1_emd_merge_pm10_seoul_map$gu <- as.factor(tsv1_emd_merge_pm10_seoul_map$gu)
+
+
+
+plotp <- ggplot()+
+    geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv1_emd_merge_pm25_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+    theme_bw() + 
+    geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,초미세먼지,sep = '\n')),size = 3, vjust = -0.25, check_overlap = TRUE,fontface = 'bold')+
+    facet_wrap(~gu+date,scales = 'free',ncol = 1)+
+    labs(title = "2020년 서울시 행정동 일별 초미세먼지 평균")
+
+plotp
+
+rm(plotp)
+rm(tsv1_emd_merge_pm25_day_map)
+gc()
+
+
+```
+
+
+#2021년 행정동별 초미세먼지 평균 지도 (일별)
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=100, fig.width=8, fig.height=800}
+
+#2021년 행정동별 초미세먼지 지도(일별)
+tsv2_emd_pm25_day_map <- tsv_2 %>% group_by(EMD_CD,date,gover) %>% summarise(초미세먼지 =mean(`초미세먼지 보정 (㎍/㎥)`, na.rm =TRUE ))
+
+names(tsv2_emd_pm25_day_map)[1] <- c("id")
+tsv2_emd_pm25_day_map$id <- as.numeric(tsv2_emd_pm25_day_map$id)
+
+tsv2_emd_merge_pm25_day_map <- merge(seoul_emd_map,tsv2_emd_pm25_day_map,by='id')
+tsv2_emd_merge_pm25_day_map <- inner_join(seoul_emd_map,tsv2_emd_pm25_day_map,by='id')
+
+emd_name_value <- merge(emd_name,tsv2_emd_pm25_day_map,by = 'id')
+emd_name_value$초미세먼지 <- round(emd_name_value$초미세먼지,0)
+
+rm(tsv2_emd_pm25_day_map)
+
+tsv2_emd_merge_pm25_day_map$standard[tsv2_emd_merge_pm25_day_map$초미세먼지 >75] = 4 
+tsv2_emd_merge_pm25_day_map$standard[tsv2_emd_merge_pm25_day_map$초미세먼지 <=75] = 3 
+tsv2_emd_merge_pm25_day_map$standard[tsv2_emd_merge_pm25_day_map$초미세먼지 <=35] = 2 
+tsv2_emd_merge_pm25_day_map$standard[tsv2_emd_merge_pm25_day_map$초미세먼지 <=15] = 1 
+
+
+
+#tsv1_emd_merge_pm10_seoul_map <- inner_join(tsv1_emd_merge_pm10_seoul_map,gover_cd_tmp,by='gover')
+#tsv1_emd_merge_pm10_seoul_map$gu <- as.factor(tsv1_emd_merge_pm10_seoul_map$gu)
+
+
+
+plotp <- ggplot()+
+    geom_polygon(data = seoul_emd_map, colour = 'black', aes(x=long, y =lat, group = group), fill = NA)+
+    geom_polygon(data = tsv2_emd_merge_pm25_day_map,colour = 'black' ,aes(x=long, y=lat, group=group ,fill =factor(standard))) +
+   scale_fill_manual(name = "예보등급",values =c("royalblue","green","yellow","red"),breaks = c(1,2,3,4), labels = c("좋음(0~30)","보통(31~80)","나쁨(81~150)","매우나쁨(151~)"))+
+    theme_bw() + 
+    geom_text(data = emd_name_value, aes(x=long, y=lat, label = paste(emd_nm,초미세먼지,sep = '\n')),size = 3, vjust = -0.25, check_overlap = TRUE,fontface = 'bold')+
+    facet_wrap(~gu+date,scales = 'free',ncol = 1)+
+    labs(title = "2021년 서울시 행정동 일별 초미세먼지 평균")
+
+plotp
+
+rm(plotp)
+rm(tsv2_emd_merge_pm25_day_map)
+gc()
+
+
+```
+
+
+# 행정동 시간별 미세먼지 평균 지도
+#차후 제작 예정
+
+
+
+
+
+#동 미세먼지 경보(시간별)
+```{r, warning= FALSE, message=F, echo = FALSE, dpi=300}
+
+#tsv_3_dong_hour_2020 %>% View()
+#tsv_3_dong_hour_2021 %>% View()
+### 라운드업 
+
+tsv_3_dong_hour_2021$미세먼지 <- round(tsv_3_dong_hour_2021$미세먼지)
+tsv_3_dong_hour_2021$초미세먼지 <- round(tsv_3_dong_hour_2021$초미세먼지)
+
+
+# 평균값 계산
+tsv_3_dong_hour_2020_pm10_mean <- mean(tsv_3_dong_hour_2020$미세먼지)
+tsv_3_dong_hour_2020_pm2_mean <- mean(tsv_3_dong_hour_2020$초미세먼지)
+
+tsv_3_dong_hour_2021_pm10_mean <- mean(tsv_3_dong_hour_2021$미세먼지)
+tsv_3_dong_hour_2021_pm2_mean <- mean(tsv_3_dong_hour_2021$초미세먼지)
+
+tsv_1_seoul_hour_pm10_mean <- round(tsv_3_dong_hour_2020_pm10_mean)
+tsv_1_seoul_hour_pm2_mean <- round(tsv_3_dong_hour_2020_pm2_mean)
+tsv_2_seoul_hour_pm10_mean <- round(tsv_3_dong_hour_2021_pm10_mean)
+tsv_2_seoul_hour_pm2_mean <- round(tsv_3_dong_hour_2021_pm2_mean)
+
+tsv_3_dong_hour_2020_nrow <-nrow(tsv_3_dong_hour_2020)
+tsv_3_dong_hour_2021_nrow <-nrow(tsv_3_dong_hour_2021)
+
+
+#####연속 평균 이상 시간재기(before)
+###미세먼지
+tsv_3_dong_hour_2020_conclusion_pm10 <- tsv_3_dong_hour_2020
+tsv_3_dong_hour_2020_conclusion_pm10$conclusion <- ifelse(tsv_3_dong_hour_2020_conclusion_pm10$미세먼지 >= 150, 1, 0)
+tsv_3_dong_hour_2020_conclusion_pm10$비교날짜 <- before_year
+tsv_3_dong_hour_2020_conclusion_pm10 <- tsv_3_dong_hour_2020_conclusion_pm10 %>% group_by(비교날짜,dong) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_dong_hour_2020_conclusion_pm10 <- tsv_3_dong_hour_2020_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_3_dong_hour_2020_conclusion_nrow_pm10 <- nrow(tsv_3_dong_hour_2020_conclusion_pm10)
+
+###초미세먼지
+tsv_3_dong_hour_2020_conclusion_pm2 <- tsv_3_dong_hour_2020
+tsv_3_dong_hour_2020_conclusion_pm2$conclusion <- ifelse(tsv_3_dong_hour_2020_conclusion_pm2$초미세먼지 >= 75, 1, 0)
+tsv_3_dong_hour_2020_conclusion_pm2$비교날짜 <- before_year
+tsv_3_dong_hour_2020_conclusion_pm2<- tsv_3_dong_hour_2020_conclusion_pm2 %>% group_by(비교날짜,dong) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_dong_hour_2020_conclusion_pm2 <- tsv_3_dong_hour_2020_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_3_dong_hour_2020_conclusion_nrow_pm2 <- nrow(tsv_3_dong_hour_2020_conclusion_pm2)
+
+#####연속 평균 이상 시간재기(after)
+###미세먼지
+tsv_3_dong_hour_2021_conclusion_pm10 <- tsv_3_dong_hour_2021
+tsv_3_dong_hour_2021_conclusion_pm10$conclusion <- ifelse(tsv_3_dong_hour_2021_conclusion_pm10$미세먼지 >= 150, 1, 0)
+tsv_3_dong_hour_2021_conclusion_pm10$비교날짜 <- after_year
+tsv_3_dong_hour_2021_conclusion_pm10<- tsv_3_dong_hour_2021_conclusion_pm10 %>% group_by(비교날짜,dong) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_dong_hour_2021_conclusion_pm10 <- tsv_3_dong_hour_2021_conclusion_pm10 %>% filter(conclusion == "1")
+tsv_3_dong_hour_2021_conclusion_nrow_pm10 <- nrow(tsv_3_dong_hour_2021_conclusion_pm10)
+
+###초미세먼지
+tsv_3_dong_hour_2021_conclusion_pm2 <- tsv_3_dong_hour_2021
+tsv_3_dong_hour_2021_conclusion_pm2$conclusion <- ifelse(tsv_3_dong_hour_2021_conclusion_pm2$초미세먼지 >= 75, 1, 0)
+tsv_3_dong_hour_2021_conclusion_pm2$비교날짜 <- after_year
+tsv_3_dong_hour_2021_conclusion_pm2<- tsv_3_dong_hour_2021_conclusion_pm2 %>% group_by(비교날짜,dong) %>% mutate(counter = unlist(sapply(rle(conclusion)$lengths, seq_len)))
+
+tsv_3_dong_hour_2021_conclusion_pm2 <- tsv_3_dong_hour_2021_conclusion_pm2 %>% filter(conclusion == "1")
+tsv_3_dong_hour_2021_conclusion_nrow_pm2 <- nrow(tsv_3_dong_hour_2021_conclusion_pm2)
+
+
+#########  max시간 계산#########33
+#tsv_3_dong_hour_2021_conclusion_pm10_tsv<-tsv_3_dong_hour_2021_conclusion_pm10
+tsv_3_dong_hour_2020_conclusion_pm10 <- tsv_3_dong_hour_2020_conclusion_pm10 %>% group_by(dong) %>% slice(which.max(counter))
+tsv_3_dong_hour_2020_conclusion_pm2 <- tsv_3_dong_hour_2020_conclusion_pm2 %>% group_by(dong) %>% slice(which.max(counter))
+
+tsv_3_dong_hour_2021_conclusion_pm10 <- tsv_3_dong_hour_2021_conclusion_pm10 %>% group_by(dong) %>% slice(which.max(counter))
+tsv_3_dong_hour_2021_conclusion_pm2 <- tsv_3_dong_hour_2021_conclusion_pm2 %>% group_by(dong) %>% slice(which.max(counter))
+
+########### 표 다듬기 ############
+tsv_3_dong_hour_2020_conclusion_pm10$cal<- tsv_3_dong_hour_2020_conclusion_pm10$counter *60 *60 
+tsv_3_dong_hour_2020_conclusion_pm10$test <-tsv_3_dong_hour_2020_conclusion_pm10$측정시간 - tsv_3_dong_hour_2020_conclusion_pm10$cal
+
+tsv_3_dong_hour_2020_conclusion_pm2$cal<- tsv_3_dong_hour_2020_conclusion_pm2$counter *60 *60 
+tsv_3_dong_hour_2020_conclusion_pm2$test <-tsv_3_dong_hour_2020_conclusion_pm2$측정시간 - tsv_3_dong_hour_2020_conclusion_pm2$cal
+
+
+tsv_3_dong_hour_2021_conclusion_pm10$cal<- tsv_3_dong_hour_2021_conclusion_pm10$counter *60 *60 
+tsv_3_dong_hour_2021_conclusion_pm10$test <-tsv_3_dong_hour_2021_conclusion_pm10$측정시간 - tsv_3_dong_hour_2021_conclusion_pm10$cal
+
+tsv_3_dong_hour_2021_conclusion_pm2$cal<- tsv_3_dong_hour_2021_conclusion_pm2$counter *60 *60 
+tsv_3_dong_hour_2021_conclusion_pm2$test <-tsv_3_dong_hour_2021_conclusion_pm2$측정시간 - tsv_3_dong_hour_2021_conclusion_pm2$cal
+
+
+tsv_3_dong_hour_2020_conclusion_pm10 <- tsv_3_dong_hour_2020_conclusion_pm10 %>% dplyr::select(비교날짜, test, 측정시간, dong, counter, 미세먼지)
+tsv_3_dong_hour_2020_conclusion_pm2 <- tsv_3_dong_hour_2020_conclusion_pm2 %>% dplyr::select(비교날짜, test, 측정시간, dong, counter, 미세먼지)
+
+tsv_3_dong_hour_2021_conclusion_pm10 <- tsv_3_dong_hour_2021_conclusion_pm10 %>% dplyr::select(비교날짜, test, 측정시간, dong, counter, 미세먼지)
+tsv_3_dong_hour_2021_conclusion_pm2 <- tsv_3_dong_hour_2021_conclusion_pm2 %>% dplyr::select(비교날짜, test, 측정시간, dong, counter, 미세먼지)
+
+names(tsv_3_dong_hour_2020_conclusion_pm10)[1] <- '기간'
+names(tsv_3_dong_hour_2020_conclusion_pm10)[2] <- '미세먼지 주의보 시작시간'
+names(tsv_3_dong_hour_2020_conclusion_pm10)[3] <- '미세먼지 주의보 종료시간'
+names(tsv_3_dong_hour_2020_conclusion_pm10)[4] <- 'dong'
+names(tsv_3_dong_hour_2020_conclusion_pm10)[5] <- '미세먼지 주의보 연속발생시간'
+names(tsv_3_dong_hour_2020_conclusion_pm10)[6] <- '미세먼지 농도'
+
+names(tsv_3_dong_hour_2020_conclusion_pm2)[1] <- '기간'
+names(tsv_3_dong_hour_2020_conclusion_pm2)[2] <- '초미세먼지 주의보 시작시간'
+names(tsv_3_dong_hour_2020_conclusion_pm2)[3] <- '초미세먼지 주의보 종료시간'
+names(tsv_3_dong_hour_2020_conclusion_pm2)[4] <- 'dong'
+names(tsv_3_dong_hour_2020_conclusion_pm2)[5] <- '초미세먼지 주의보 연속발생시간'
+names(tsv_3_dong_hour_2020_conclusion_pm2)[6] <- '초미세먼지 농도'
+
+names(tsv_3_dong_hour_2021_conclusion_pm10)[1] <- '기간'
+names(tsv_3_dong_hour_2021_conclusion_pm10)[2] <- '미세먼지 주의보 시작시간'
+names(tsv_3_dong_hour_2021_conclusion_pm10)[3] <- '미세먼지 주의보 종료시간'
+names(tsv_3_dong_hour_2021_conclusion_pm10)[4] <- 'dong'
+names(tsv_3_dong_hour_2021_conclusion_pm10)[5] <- '미세먼지 주의보 연속발생시간'
+names(tsv_3_dong_hour_2021_conclusion_pm10)[6] <- '미세먼지 농도'
+
+names(tsv_3_dong_hour_2021_conclusion_pm2)[1] <- '기간'
+names(tsv_3_dong_hour_2021_conclusion_pm2)[2] <- '초미세먼지 주의보 시작시간'
+names(tsv_3_dong_hour_2021_conclusion_pm2)[3] <- '초미세먼지 주의보 종료시간'
+names(tsv_3_dong_hour_2021_conclusion_pm2)[4] <- 'dong'
+names(tsv_3_dong_hour_2021_conclusion_pm2)[5] <- '초미세먼지 주의보 연속발생시간'
+names(tsv_3_dong_hour_2021_conclusion_pm2)[6] <- '초미세먼지 농도'
+
+```
+
+
+
+
