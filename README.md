@@ -1,6 +1,9 @@
 # weatherINFO_Visualize
 r 을 사용한 미세먼지, 온습도 시각화 템플릿
 
+21.07.25: git 렌더링 시간 이슈로 인한 gif -> plot_ly animation slider로 변경
+
+
 다음 기준에 따라 지도 및 다양한 그래프로 시각화하게 됩니다.
 1. 기간전체
 2. 일별
