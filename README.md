@@ -1,6 +1,8 @@
 
-# SDOT 활용 기상정보 시각화 
-미세먼지, 온습도 시각화
+## 스마트서울 도시데이터팀 분석과제 1 - <SDOT 데이터를 사용한 기상특보(폭염, 건조, 미세먼지)>
+ - 진행기간 : 2021.06 ~ 2021.07 
+
+
 
 
 <img src="https://github.com/hoheer/weatherINFO_VIisualize/blob/main/image/2021%EB%85%84%20%EA%B8%B0%EC%98%A8.png" width="30%" height="20%" title="px(200)" alt="RubberDuck"></img>
